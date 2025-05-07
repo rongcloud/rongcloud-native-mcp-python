@@ -1,0 +1,32 @@
+2025-05-07 18:15:34,646 - rc_im_mcp_server - INFO - FastMCP不支持on_startup和on_shutdown，将在run_server中处理启动和关闭逻辑
+2025-05-07 18:15:34,648 - mock_im_server - INFO - FastMCP不支持on_startup和on_shutdown，将在启动时直接处理
+2025-05-07 18:15:34,648 - mock_im_server - INFO - IM MCP服务器正在启动...
+2025-05-07 18:15:34,648 - mcp_utils - INFO - MCP请求超时设置为: 60秒
+2025-05-07 18:15:34,648 - mcp_utils - INFO - MCP应用已配置为: 使用其他工具前需要先调用初始化
+2025-05-07 18:15:34,648 - mcp_utils - INFO - list_tools是异步方法，不在此处直接调用
+2025-05-07 18:15:34,648 - mcp_utils - INFO - 工具管理器属性: ['__class__', '__delattr__', '__dict__', '__dir__', '__doc__', '__eq__', '__format__', '__ge__', '__getattribute__', '__gt__', '__hash__', '__init__', '__init_subclass__', '__le__', '__lt__', '__module__', '__ne__', '__new__', '__reduce__', '__reduce_ex__', '__repr__', '__setattr__', '__sizeof__', '__str__', '__subclasshook__', '__weakref__', '_tools', 'add_tool', 'call_tool', 'get_tool', 'list_tools', 'warn_on_duplicate_tools']
+2025-05-07 18:15:34,648 - mcp_utils - INFO - 注册的工具列表 (工具管理器): [Tool(fn=<function init at 0x10356ec20>, name='init', description='\n    初始化IM引擎\n    \n    Args:\n        app_key: 应用的AppKey\n        device_id: 设备ID\n        \n    Returns:\n        包含初始化结果的字典\n    ', parameters={'properties': {'app_key': {'default': {'description': '应用标识（AppKey）', 'default': None}, 'title': 'App Key', 'type': 'string'}, 'device_id': {'default': {'description': '设备ID', 'default': 'mcp_demo'}, 'title': 'Device Id', 'type': 'string'}}, 'title': 'initArguments', 'type': 'object'}, fn_metadata=FuncMetadata(arg_model=<class 'mcp.server.fastmcp.utilities.func_metadata.initArguments'>), is_async=False, context_kwarg=None), Tool(fn=<function connect at 0x10356ee60>, name='connect', description='\n    连接IM服务器\n    \n    Args:\n        token: 用户连接token\n        timeout_sec: 连接超时时间，单位为秒，默认为30秒\n        \n    Returns:\n        包含连接结果的字典\n    ', parameters={'properties': {'token': {'default': {'description': '用户连接token', 'default': None}, 'title': 'Token', 'type': 'string'}, 'timeout_sec': {'default': {'description': '连接超时时间，单位为秒', 'default': 30}, 'title': 'Timeout Sec', 'type': 'integer'}}, 'title': 'connectArguments', 'type': 'object'}, fn_metadata=FuncMetadata(arg_model=<class 'mcp.server.fastmcp.utilities.func_metadata.connectArguments'>), is_async=False, context_kwarg=None), Tool(fn=<function send_message at 0x10356f130>, name='sendMessage', description='\n    发送消息给指定接收者\n    \n    Args:\n        receiver: 接收者ID或名称\n        content: 消息内容\n    \n    Returns:\n        发送结果信息\n    ', parameters={'properties': {'receiver': {'default': {'description': '消息接收者的ID', 'default': None}, 'title': 'Receiver', 'type': 'string'}, 'content': {'default': {'description': '要发送的消息内容', 'default': None}, 'title': 'Content', 'type': 'string'}}, 'title': 'send_messageArguments', 'type': 'object'}, fn_metadata=FuncMetadata(arg_model=<class 'mcp.server.fastmcp.utilities.func_metadata.send_messageArguments'>), is_async=False, context_kwarg=None), Tool(fn=<function get_history_messages at 0x10356f400>, name='getHistoryMessages', description='\n    获取与指定用户的历史消息\n    \n    Args:\n        user_id: 用户ID，获取与该用户的历史消息\n        count: 要获取的消息数量，默认为10条\n        \n    Returns:\n        历史消息列表\n    ', parameters={'properties': {'user_id': {'default': {'description': '用户ID，获取与该用户的历史消息', 'default': None}, 'title': 'User Id', 'type': 'string'}, 'count': {'default': {'description': '要获取的消息数量', 'default': 10}, 'title': 'Count', 'type': 'integer'}}, 'title': 'get_history_messagesArguments', 'type': 'object'}, fn_metadata=FuncMetadata(arg_model=<class 'mcp.server.fastmcp.utilities.func_metadata.get_history_messagesArguments'>), is_async=False, context_kwarg=None)]
+2025-05-07 18:15:34,648 - mcp_utils - INFO - 工具名称列表: ['init', 'connect', 'sendMessage', 'getHistoryMessages']
+2025-05-07 18:15:34,648 - mcp_utils - INFO - 工具管理器的_tools属性包含: ['init', 'connect', 'sendMessage', 'getHistoryMessages']
+2025-05-07 18:15:34,648 - mcp_utils - INFO - 已找到'init'工具，可以正常使用
+2025-05-07 18:15:34,648 - mcp_utils - INFO - FastMCP.run方法支持的参数: ['transport']
+INFO:     Started server process [67768]
+INFO:     Waiting for application startup.
+INFO:     Application startup complete.
+INFO:     Uvicorn running on http://0.0.0.0:8000 (Press CTRL+C to quit)
+iDydmCAbCwJWA3sVLFeyP233zkQsbE8eVSFdUMVanNu5fzPcchU8SEo/0bq9T4V+x8CAikZBHM1SklmbX4AD9DwM8cj754Iz
+cam+q9ycHOo5SVRVavhG9f+f0IjfzRkyUpTVecImFcOTXqOLfNLWeA7N9I+d9AmrZ+2lvTuz+bNMjxhO6rAHEKIXe0A6N4MW
+token : iDydmCAbCwJWA3sVLFeyP233zkQsbE8eVSFdUMVanNu5fzPcchU8SEo/0bq9T4V+x8CAikZBHM1SklmbX4AD9DwM8cj754Iz
+
+=== IM MCP服务器启动成功 ===
+此服务器调用真实的IM实现，通过mcp_im_server.py来访问IM功能。
+
+调试方法:
+1. 使用MCP Inspector: npx @modelcontextprotocol/inspector
+2. 在Inspector中连接: http://localhost:8000/sse
+3. 可用工具: init, connect, sendMessage, getHistoryMessages
+注意: 使用前必须先调用init初始化SDK!
+INFO:     127.0.0.1:64863 - "GET /sse HTTP/1.1" 200 OK
+2025-05-07 18:15:45,176 - mcp.server.sse - WARNING - Received invalid session ID: test-session
+INFO:     127.0.0.1:64865 - "POST /messages/?session_id=test-session HTTP/1.1" 400 Bad Request
+INFO:     127.0.0.1:64908 - "GET /sse HTTP/1.1" 200 OK
