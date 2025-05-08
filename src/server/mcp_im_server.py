@@ -50,14 +50,11 @@ def init(
     Returns:
         包含初始化结果的字典
     """
-    logger.info(f"正在初始化IM引擎，AppKey类型: {type(app_key)}, 值: {app_key}, 设备ID类型: {type(device_id)}, 值: {device_id}")
     try:
         # 确保参数是字符串类型并进行更详细的记录
         app_key_str = str(app_key) if app_key is not None else ""
         device_id_str = str(device_id) if device_id is not None else "mcp_demo"
-        
-        logger.info(f"转换后 - AppKey类型: {type(app_key_str)}, 值: {app_key_str}, 设备ID类型: {type(device_id_str)}, 值: {device_id_str}")
-                
+                        
         # 使用IMSDK的initialize方法初始化引擎
         result = default_sdk.initialize(app_key_str, device_id_str)
         if result.get("success", False):

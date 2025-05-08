@@ -20,12 +20,18 @@ import inspect
 
 from mcp import ServerSession
 
-from config.config import Common
-
 # 添加项目根目录到Python路径
 project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), "../.."))
 if project_root not in sys.path:
     sys.path.append(project_root)
+
+# 尝试添加src目录到Python路径
+src_path = os.path.join(project_root, "src")
+if src_path not in sys.path:
+    sys.path.append(src_path)
+
+# 现在尝试导入config
+from config.config import Common
 
 # 导入正确的MCP模块
 from mcp.server.fastmcp import FastMCP
@@ -130,30 +136,6 @@ def filter_params(func):
     
     return wrapper
 
-# 添加该同步工具包装器函数
-def sync_tool(function_name=None, description=None):
-    """将函数包装为同步MCP工具，明确设置is_async=False"""
-    def decorator(func):
-        nonlocal function_name, description
-        if function_name is None:
-            function_name = func.__name__
-        if description is None:
-            description = func.__doc__
-            
-        # 使用app._tool_manager.add_tool而不是@app.tool装饰器
-        app._tool_manager.add_tool(
-            fn=func,
-            name=function_name,
-            description=description,
-            is_async=False  # 明确设置为同步函数
-        )
-        
-        @functools.wraps(func)
-        def wrapper(*args, **kwargs):
-            return func(*args, **kwargs)
-        return wrapper
-    return decorator
-
 # 使用真实实现但包装为MCP工具
 @require_initialization
 @filter_params
@@ -185,24 +167,22 @@ def init(
 @filter_params
 @app.tool("connect")
 def connect(
-    token: str = Parameter(description="用户连接token"),
-    timeout_sec: int = Parameter(description="连接超时时间，单位为秒", default=30)
+    token: str = Parameter(description="用户连接token")
 ) -> Dict[str, Any]:
     """
     连接IM服务器
     
     Args:
         token: 用户连接token
-        timeout_sec: 连接超时时间，单位为秒，默认为30秒
         
     Returns:
         包含连接结果的字典
     """
     # 这是一个同步函数，直接调用同步的real_connect函数
-    logger.info(f"mock_mcp_server: 调用connect (同步函数), 参数: token长度={len(token)}, timeout_sec={timeout_sec}")
+    logger.info(f"mock_mcp_server: 调用connect (同步函数), 参数: token长度={len(token)}")
     try:
         # 直接调用同步函数
-        result = real_connect(token=token, timeout_sec=timeout_sec)
+        result = real_connect(token=token, timeout_sec=int(30))
         logger.info(f"connect结果: {result}")
         # 直接返回同步结果
         return result

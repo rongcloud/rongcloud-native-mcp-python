@@ -12,3 +12,5 @@ wheels/
 *.db
 *.db-shm
 *.db-wal
+*.kv
+src/imsdk/rust_db/RongCloud/*
