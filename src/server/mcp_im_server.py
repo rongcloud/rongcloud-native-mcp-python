@@ -15,6 +15,7 @@ from mcp.server.fastmcp import FastMCP
 from mcp.types import Tool
 
 # 导入我们的工具类
+from lib.rcim_client import RcimConversationType, RcimConversationType_Private, RcimConversationType_Group
 from src.utils.mcp_utils import MCPServerUtils
 
 # 由于mcp库没有导出Parameter，我们需要自己定义一个简单版本
@@ -105,20 +106,30 @@ def connect(
 def send_message(
     receiver: str = Parameter(description="消息接收者的ID"),
     content: str = Parameter(description="要发送的消息内容"),
+    conversation_type: int = Parameter(description="会话类型，1=单聊，2=群聊", default=1)
 ) -> Dict[str, Any]:
     """
-    发送IM消息给指定用户
+    发送IM消息给指定用户(单聊或群聊)
     
     Args:
         receiver: 消息接收者的ID
         content: 要发送的消息内容
+        conversation_type: 会话类型，1=单聊，2=群聊，默认为单聊(1)
         
     Returns:
         包含发送结果的字典
     """
     logger.info(f"正在发送消息给 {receiver}: {content}")
     try:
-        result = default_sdk.send_message(receiver, content)
+        # 转换整数值为 RcimConversationType
+        from lib.rcim_client import RcimConversationType_Private, RcimConversationType_Group
+        
+        # 根据整数值选择对应的会话类型
+        real_conversation_type = RcimConversationType_Private
+        if conversation_type == 2:
+            real_conversation_type = RcimConversationType_Group
+            
+        result = default_sdk.send_message(receiver, content, real_conversation_type)
         return {
             "success": True,
             "message_id": result.get("message_id", "unknown"),

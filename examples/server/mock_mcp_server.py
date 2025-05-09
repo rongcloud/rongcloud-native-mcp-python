@@ -8,6 +8,18 @@
 1. 提供MCP协议接口给客户端
 2. 实际功能实现委托给mcp_im_server中的方法
 3. 允许通过MCP Inspector进行调试和测试
+
+
+TODO：
+1. 增加消息监听机制
+2. 发送媒体消息
+3. 获取历史消息（需要开启历史消息云存储）
+4. engine代码整理
+5. 取消获取token机制 直接传token（提前commit）
+
+其他非高优优化
+1. 将init与connect方法合并
+2. mcp inspector 中默认值设置和注释设置
 """
 import sys
 import os
@@ -29,6 +41,9 @@ if project_root not in sys.path:
 src_path = os.path.join(project_root, "src")
 if src_path not in sys.path:
     sys.path.append(src_path)
+
+# 现在导入lib模块
+from lib.rcim_client import RcimConversationType, RcimConversationType_Private
 
 # 现在尝试导入config
 from config.config import Common
@@ -152,7 +167,7 @@ def init(
         device_id: 设备ID
         
     Returns:
-        包含初始化结果的字典
+        {'success': True, 'app_key': 'xxx', 'device_id': 'xxx', 'message': 'IM SDK初始化成功'}
     """
     # 这是一个同步函数，直接调用同步的real_init函数
     logger.info(f"mock_mcp_server: 调用init (同步函数), 参数: app_key={app_key}, device_id={device_id}")
@@ -176,7 +191,7 @@ def connect(
         token: 用户连接token
         
     Returns:
-        包含连接结果的字典
+        {'success': True, 'user_id': 'xxx', 'code': 0}
     """
     # 这是一个同步函数，直接调用同步的real_connect函数
     logger.info(f"mock_mcp_server: 调用connect (同步函数), 参数: token长度={len(token)}")
@@ -205,13 +220,13 @@ def send_message(
         content: 消息内容
     
     Returns:
-        发送结果信息
+        {'success': True, 'message_id': 'mock_msg_1746786323', 'timestamp': 1746786323481}
     """
     # 这是一个同步函数，直接调用同步的real_send_message函数
     logger.info(f"mock_mcp_server: 调用sendMessage (同步函数), 参数: receiver={receiver}, content={content}")
     try:
         # 直接调用同步函数
-        result = real_send_message(receiver=receiver, content=content)
+        result = real_send_message(receiver=receiver, content=content, conversation_type=RcimConversationType_Private)
         logger.info(f"sendMessage结果: {result}")
         # 直接返回同步结果
         return result

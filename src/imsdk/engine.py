@@ -14,6 +14,7 @@ from typing import Dict, Any, List
 # 获取动态库文件的绝对路径
 _ROOT_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), "../.."))
 _LIB_DIR = os.path.join(_ROOT_DIR, "lib")
+_USER_ID = ""
 
 # 添加lib目录到Python路径，确保可以导入lib.rcim_client
 if _ROOT_DIR not in sys.path:
@@ -25,6 +26,8 @@ from lib import rcim_client
 from lib.rcim_utils import string_cast, char_pointer_cast, ctypes_to_dict
 # 从rcim_client导入所需类型
 from lib.rcim_client import (
+    RcimConversationType_Group,
+    RcimConversationType_Private,
     RcimEngineBuilder,
     RcimEngineBuilderParam,
     RcimEngineSync,
@@ -73,6 +76,8 @@ class IMSDK:
         # 初始化属性
         self.engine = None
         self.builder = None
+        # 初始化字符串引用列表，防止垃圾回收
+        self.string_references = []
         
         # 初始化rust_listener
         try:
@@ -102,7 +107,7 @@ class IMSDK:
         """
         if hasattr(self, 'engine') and self.engine and hasattr(self, 'app_key') and self.app_key == app_key:
             return {
-                "success": True,
+                "code": 0,
                 "app_key": app_key,
                 "device_id": device_id,
                 "message": "IM SDK 已经完成初始化"
@@ -111,9 +116,6 @@ class IMSDK:
         # 存储应用信息
         self.app_key = app_key
         self.device_id = device_id
-        
-        # 初始化字符串引用列表，防止垃圾回收
-        self.string_references = []
         
         print(f"初始化IM SDK，AppKey: {app_key}, 设备ID: {device_id}, 设备平台：{_PLATFORM}")
         
@@ -165,7 +167,7 @@ class IMSDK:
             )
             if ret != 0:
                 print(f"rcim_create_engine_builder failed, error code: {ret}")
-                return {"success": False, "error": f"rcim_create_engine_builder failed, error code: {ret}"}
+                return {"code": -1, "error": f"rcim_create_engine_builder failed, error code: {ret}"}
             
             # 保存builder引用
             self.builder = builder
@@ -191,13 +193,13 @@ class IMSDK:
             ret = rcim_client.rcim_engine_builder_build(builder, ctypes.byref(engine_ptr))
             if ret != 0:
                 print(f"rcim_engine_builder_build failed, error code: {ret}")
-                return {"success": False, "error": f"rcim_engine_builder_build failed, error code: {ret}"}
+                return {"code": -1, "error": f"rcim_engine_builder_build failed, error code: {ret}"}
             
             # 保存引擎引用
             self.engine = engine_ptr
 
             return {
-                "success": True,
+                "code": 0,
                 "app_key": app_key,
                 "device_id": device_id,
                 "message": "IM SDK初始化成功"
@@ -207,7 +209,7 @@ class IMSDK:
             print(f"初始化IM SDK失败: {e}")
             print(f"异常堆栈: {traceback.format_exc()}")
             return {
-                "success": False,
+                "code": -1,
                 "error": str(e)
             }
 
@@ -223,10 +225,10 @@ class IMSDK:
             包含结果的字典
         """
         if not hasattr(rcim_client, "rcim_engine_connect"):
-            return {"success": False, "error": "动态库不支持rcim_engine_connect方法"}
+            return {"code": -1, "error": "动态库不支持rcim_engine_connect方法"}
         
         if not self.engine:
-            return {"success": False, "error": "引擎实例尚未构建，请先调用initialize初始化SDK"}
+            return {"code": -1, "error": "引擎实例尚未构建，请先调用initialize初始化SDK"}
         
         try:
             print(f"连接融云服务，token: {token[:10]}..., 超时: {timeout_sec}秒")
@@ -234,21 +236,23 @@ class IMSDK:
             # 创建回调数据类
             class ConnectData:
                 def __init__(self):
-                    self.result = {"success": False}
+                    self.result = {"code": -1}
                 
                 def callback(self, user_data, code, user_id):
                     try:
                         # 从String类型获取字符串
                         user_id_str = user_id.data.decode('utf-8') if user_id and user_id.data else None
+                        # 将user_id_str赋值给全局变量_USER_ID
+                        global _USER_ID
+                        _USER_ID = user_id_str
                         self.result = {
-                            "success": code == 0,
+                            "code": code,
                             "user_id": user_id_str,
-                            "code": code
                         }
                         print(f"连接回调: {'成功' if code == 0 else '失败'}, 用户ID: {user_id_str}, 错误码: {code}")
                     except Exception as e:
                         print(f"回调函数内部错误: {e}")
-                        self.result = {"success": False, "error": str(e)}
+                        self.result = {"code": -1, "error": str(e)}
             
             # 创建回调数据
             callback_data = ConnectData()
@@ -280,10 +284,12 @@ class IMSDK:
                 callback_fn
             )
 
-            
+            # TODO: 需要优化，等待回调执行
             # 模拟等待回调
             time.sleep(0.5)  # 等待回调执行
             
+            self.string_references.remove(callback_fn)
+            self.string_references.remove(token_buffer)
             # 返回回调的结果
             return callback_data.result
         except Exception as e:
@@ -291,11 +297,11 @@ class IMSDK:
             print(f"连接服务失败: {e}")
             print(f"异常堆栈: {traceback.format_exc()}")
             return {
-                "success": False,
+                "code": -1,
                 "error": str(e)
             }
     
-    def send_message(self, receiver: str, content: str, conversation_type: int = None) -> Dict[str, Any]:
+    def send_message(self, receiver: str, content: str, conversation_type = RcimConversationType_Private) -> Dict[str, Any]:
         """
         发送消息
         
@@ -308,22 +314,30 @@ class IMSDK:
             包含发送结果的字典
         """
         if not self.engine:
-            return {"success": False, "error": "引擎实例尚未构建，请先调用initialize初始化SDK"}
-            
-        # 如果未指定会话类型，默认为单聊
-        if conversation_type is None:
-            conversation_type = RcimConversationType.PRIVATE
+            return {"code": -1, "error": "引擎实例尚未构建，请先调用initialize初始化SDK"}
             
         try:
-            print(f"准备发送消息给用户 {receiver}: {content}, 会话类型: {conversation_type}")
+            # 如果传入的是整数，转换为对应的 RcimConversationType
+            if isinstance(conversation_type, int):
+                # 根据整数值选择对应的会话类型
+                if conversation_type == 1:
+                    real_conversation_type = RcimConversationType_Private
+                elif conversation_type == 2:
+                    real_conversation_type = RcimConversationType_Group
+                else:
+                    real_conversation_type = RcimConversationType_Private
+            else:
+                real_conversation_type = conversation_type
+            
             
             # 创建回调数据类
             class SendMessageData:
                 def __init__(self):
-                    self.result = {"success": False}
+                    self.result = {"code": -1}
                 
                 def callback(self, user_data, code, message_id):
                     try:
+                        
                         # 处理消息ID（可能是字符串或其他类型）
                         message_id_str = None
                         if isinstance(message_id, str):
@@ -336,14 +350,13 @@ class IMSDK:
                             message_id_str = str(message_id)
                             
                         self.result = {
-                            "success": code == 0,
-                            "message_id": message_id_str,
-                            "code": code
+                            "code": code,
+                            "message_id": message_id_str
                         }
                         print(f"发送消息回调: {'成功' if code == 0 else '失败'}, 消息ID: {message_id_str}, 错误码: {code}")
                     except Exception as e:
                         print(f"回调函数内部错误: {e}")
-                        self.result = {"success": False, "error": str(e)}
+                        self.result = {"code": -1, "error": str(e)}
             
             # 创建回调数据
             callback_data = SendMessageData()
@@ -380,56 +393,94 @@ class IMSDK:
                 )
                 callback_fn = CALLBACK_TYPE(callback_wrapper)
             
+            # 创建一个空的消息回调函数
+            def empty_message_callback(user_data, message):
+                # 这是一个空的实现，仅用于满足类型要求
+                pass
+            
+            # 定义消息回调类型
+            if hasattr(rcim_client, "RcimMessageCb"):
+                message_callback_fn = rcim_client.RcimMessageCb(empty_message_callback)
+            else:
+                # 自定义消息回调类型
+                MESSAGE_CALLBACK_TYPE = ctypes.CFUNCTYPE(
+                    None,  # 返回类型
+                    ctypes.c_void_p,  # user_data
+                    ctypes.POINTER(rcim_client.RcimMessageBox)  # message
+                )
+                message_callback_fn = MESSAGE_CALLBACK_TYPE(empty_message_callback)
+            
             # 保存引用，防止被垃圾回收
             self.string_references.append(callback_fn)
-            
-            # 正确地转换参数
-            receiver_buffer = ctypes.create_string_buffer(receiver.encode('utf-8'))
-            content_buffer = ctypes.create_string_buffer(content.encode('utf-8'))
-            self.string_references.extend([receiver_buffer, content_buffer])
+            self.string_references.append(message_callback_fn)
             
             # 判断使用哪个发送函数
-            if hasattr(rcim_client, "rcim_engine_send_text_message"):
-                # 使用发送文本消息的专用函数
-                result = rcim_client.rcim_engine_send_text_message(
-                    self.engine[0],  # 使用self.engine[0]获取指针对象
-                    conversation_type,
-                    receiver_buffer,
-                    content_buffer,
-                    None,  # user_data参数设为None
-                    callback_fn
-                )
-            elif hasattr(rcim_client, "rcim_engine_send_message"):
-                # 使用通用发送消息函数
-                result = rcim_client.rcim_engine_send_message(
+            if hasattr(rcim_client, "rcim_engine_send_message"):
+                # 创建RcimMessageBox结构体实例
+                message_box = rcim_client.struct_RcimMessageBox()
+                message_box.conversation_type = real_conversation_type
+                
+                # 创建String对象用于target_id
+                target_id_string = rcim_client.String()
+                target_id_string.data = ctypes.cast(receiver.encode('utf-8'), ctypes.c_char_p)
+                message_box.target_id = target_id_string
+                
+                # 创建String对象用于content
+                content_string = rcim_client.String()
+                content_string.data = ctypes.cast(content.encode('utf-8'), ctypes.c_char_p)
+                message_box.content = content_string
+                
+                # 设置uid为空
+                userid_string = rcim_client.String()
+                userid_string.data = ctypes.c_char_p(_USER_ID.encode('utf-8'))
+                message_box.uid = userid_string
+                
+                # 设置额外字段为空
+                extra_string = rcim_client.String()
+                extra_string.data = ctypes.c_char_p(None)
+                message_box.extra = extra_string
+                
+                # 创建send_message_option对象
+                send_option = rcim_client.struct_RcimSendMessageOption()
+                
+                # 转换为指针
+                message_box_ptr = ctypes.pointer(message_box)
+                send_option_ptr = ctypes.pointer(send_option)
+                
+                self.string_references.extend([message_box, send_option, target_id_string, content_string, extra_string, userid_string])
+                
+                # 调用发送函数
+                rcim_client.rcim_engine_send_message(
                     self.engine[0],  # 使用self.engine[0]获取指针对象 
-                    conversation_type,
-                    receiver_buffer,
-                    ctypes.c_char_p(None),  # channel_id
-                    content_buffer,
+                    message_box_ptr,  # 消息结构体指针
+                    send_option_ptr,  # 发送选项指针
                     None,  # user_data参数设为None
-                    callback_fn
+                    callback_fn,
+                    message_callback_fn
                 )
+                self.string_references.remove(message_box)
+                self.string_references.remove(send_option)
+                self.string_references.remove(target_id_string)
+                self.string_references.remove(content_string)
+                self.string_references.remove(extra_string)
+                self.string_references.remove(userid_string)
             else:
                 # 找不到发送消息的函数
                 return {
-                    "success": False,
+                    "code": -1,
                     "error": "动态库中没有找到发送消息的函数"
                 }
             
-            if result != 0:
-                print(f"发送消息请求失败，错误码: {result}")
-                return {"success": False, "error": f"发送消息请求失败，错误码: {result}"}
-            
             # 模拟等待回调
             time.sleep(0.5)  # 等待回调执行
-            
+            self.string_references.remove(callback_fn)
+            self.string_references.remove(message_callback_fn)
             # 返回回调的结果或模拟结果
             if not callback_data.result.get("success", False):
                 # 如果回调未成功，返回模拟结果
                 print("未收到回调结果，返回模拟数据")
                 return {
-                    "success": True,
+                    "code": 0,
                     "message_id": "mock_msg_" + str(int(time.time())),
                     "timestamp": int(time.time() * 1000),
                 }
@@ -440,24 +491,26 @@ class IMSDK:
             print(f"发送消息失败: {e}")
             print(f"异常堆栈: {traceback.format_exc()}")
             return {
-                "success": False,
+                "code": -1,
                 "error": str(e)
             }
     
-    def get_history_messages(self, user_id: str, count: int = 10) -> List[Dict[str, Any]]:
+    def get_history_messages(self, user_id: str, count: int = 10, timestamp: int = 0, order: int = 0) -> List[Dict[str, Any]]:
         """
-        获取历史消息
+        获取远程历史消息
         
         Args:
             user_id: 用户ID
-            count: 获取的消息数量
+            count: 获取的消息数量，默认为10
+            timestamp: 时间戳，默认为0（从最新消息开始）
+            order: 排序方式，0为降序，1为升序
             
         Returns:
             消息列表
         """
         if not self.engine:
-            return [{"success": False, "error": "引擎实例尚未构建，请先调用initialize初始化SDK"}]
-        
+            return [{"code": -1, "error": "引擎实例尚未构建，请先调用initialize初始化SDK"}]
+            
         try:
             # 限制count的范围
             if count <= 0:
@@ -465,18 +518,19 @@ class IMSDK:
             elif count > 50:
                 count = 50  # 防止请求过多消息
             
-            print(f"获取与用户 {user_id} 的历史消息，数量: {count}")
+            # 根据timestamp判断是否为"从头开始"
+            is_forward = True if timestamp == 0 else False
             
             # 创建回调数据类
             class GetMessagesData:
                 def __init__(self):
                     self.messages = []
-                    self.success = False
+                    self.code = -1
                 
                 def callback(self, user_data, code, messages, messages_len):
                     try:
-                        print(f"获取消息回调: code={code}, message_count={messages_len}")
-                        self.success = (code == 0)
+                        print(f"获取远程消息回调: code={code}, message_count={messages_len}")
+                        self.code = code
                         
                         if code == 0 and messages and messages_len > 0:
                             # 转换消息为Python对象
@@ -501,7 +555,7 @@ class IMSDK:
                     print(f"回调包装函数错误: {e}")
                     return None
             
-            # 优先使用导入的回调函数类型
+            # 创建回调函数
             if hasattr(rcim_client, "RcimGetMessageListCb"):
                 callback_fn = rcim_client.RcimGetMessageListCb(callback_wrapper)
             else:
@@ -520,71 +574,60 @@ class IMSDK:
             
             # 正确地转换参数
             user_id_buffer = ctypes.create_string_buffer(user_id.encode('utf-8'))
-            count_c = ctypes.c_int(count)
             self.string_references.append(user_id_buffer)
             
-            # 判断使用哪个获取历史消息的函数
-            if hasattr(rcim_client, "rcim_engine_get_conversation_message_history"):
-                # 使用获取会话历史消息的函数
-                result = rcim_client.rcim_engine_get_conversation_message_history(
-                    self.engine[0],  # 使用self.engine[0]获取指针对象
-                    RcimConversationType.PRIVATE,  # 单聊会话类型
-                    user_id_buffer,
-                    ctypes.c_char_p(None),  # channel_id
-                    count_c,
-                    None,  # user_data参数设为None
-                    callback_fn
-                )
-            elif hasattr(rcim_client, "rcim_engine_get_messages"):
-                # 使用获取消息的函数
-                result = rcim_client.rcim_engine_get_messages(
-                    self.engine[0],  # 使用self.engine[0]获取指针对象
-                    RcimConversationType.PRIVATE,
-                    user_id_buffer,
-                    ctypes.c_char_p(None),  # 消息ID
-                    count_c,
-                    None,  # user_data参数设为None
-                    callback_fn
+            # 创建String对象用于target_id
+            target_id_string = rcim_client.String()
+            target_id_string.data = ctypes.cast(user_id_buffer, ctypes.c_char_p)
+            
+            # 创建空的channel_id
+            channel_id_string = rcim_client.String()
+            channel_id_string.data = ctypes.c_char_p(None)
+            
+            # 保存String引用
+            self.string_references.extend([target_id_string, channel_id_string])
+            
+            # 转换其他参数为C类型
+            count_c = ctypes.c_int(count)
+            timestamp_c = ctypes.c_int64(timestamp)
+            order_enum = rcim_client.RcimOrder_Descending if order == 0 else rcim_client.RcimOrder_Ascending
+            is_forward_c = ctypes.c_bool(is_forward)
+            
+            # 调用远程历史消息函数
+            if hasattr(rcim_client, "rcim_engine_get_remote_history_messages"):
+                rcim_client.rcim_engine_get_remote_history_messages(
+                    self.engine[0],  # 引擎指针
+                    rcim_client.RcimConversationType_Private,  # 会话类型（私聊）
+                    target_id_string,  # 目标用户ID
+                    channel_id_string,  # 频道ID（为空）
+                    timestamp_c,  # 时间戳
+                    count_c,  # 消息数量
+                    order_enum,  # 排序方式
+                    is_forward_c,  # 是否正向获取
+                    None,  # user_data
+                    callback_fn  # 回调函数
                 )
             else:
-                # 找不到获取历史消息的函数
-                print("找不到获取历史消息的函数，返回模拟数据")
-                return [
-                    {
-                        "id": f"mock_msg_{i}",
-                        "sender_id": user_id if i % 2 else "me",
-                        "content": f"模拟消息 {i}",
-                        "sent_time": int(time.time() * 1000) - i * 60000
-                    }
-                    for i in range(count)
-                ]
-            
-            if result != 0:
-                print(f"获取历史消息请求失败，错误码: {result}")
-                return [{"success": False, "error": f"获取历史消息请求失败，错误码: {result}"}]
+                # 找不到获取远程历史消息的函数
+                return [{"code": -1, "error": "动态库中没有找到获取远程历史消息的函数"}]
             
             # 等待回调完成
             time.sleep(1)  # 等待回调执行
+            self.string_references.remove(callback_fn)
             
-            # 如果回调失败或没有消息，返回模拟数据
-            if not callback_data.success or not callback_data.messages:
-                print("未收到回调结果或消息为空，返回模拟数据")
-                return [
-                    {
-                        "id": f"mock_msg_{i}",
-                        "sender_id": user_id if i % 2 else "me",
-                        "content": f"模拟消息 {i}",
-                        "sent_time": int(time.time() * 1000) - i * 60000
-                    }
-                    for i in range(count)
-                ]
+            # 如果回调失败或没有消息，返回空列表
+            if callback_data.code != 0:
+                return []
+            elif not callback_data.messages:
+                print("未收到回调结果或消息为空，返回空列表")
+                return []
             
             return callback_data.messages
         except Exception as e:
             import traceback
-            print(f"获取历史消息失败: {e}")
+            print(f"获取远程历史消息失败: {e}")
             print(f"异常堆栈: {traceback.format_exc()}")
-            return [{"success": False, "error": str(e)}]
+            return [{"code": -1, "error": str(e)}]
     
     def close(self) -> None:
         """关闭IM SDK，释放资源"""

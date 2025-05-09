@@ -13,6 +13,8 @@ class Config:
     naviHost = "https://nav.rong-edge.com/"
     mediaHost = "https://rtc-media-ucbj2-01.rongcloud.net"
     stats_url = "https://stats.rong-edge.com"
+    # TODO: 删除代码
+    token = "unEF8jLCJVYYK/ByCKQaGukBtnJhhitncAsFtyPIjOY=@8yqa.cn.rongnav.com;8yqa.cn.rongcfg.com"
 
     # apiHost = "https://api-ucqa.rongcloud.net"
     # appKey = "c9kqb3rdkbb8j"
@@ -31,6 +33,7 @@ def get_token(user_id):
                               host_url=Config.apiHost,verify=False)
     token = server_client.user.getToken(user_id)["token"]
     user_token_cache.set(key, token)
+    user_token_cache.set("user_id", user_id)
     return token
 
 
