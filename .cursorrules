@@ -7,6 +7,24 @@
     2. 此项目的目标是实现一个IM服务，并提供一个MCP客户端，使用户可以方便地使用IM服务。
     3. 此项目的基础服务是一个提供IM服务的本地dylib动态库。因此仅需实现MCP的本地调用服务即可。
     
+    # 项目文件目录和架构
+    RC-IM-MCP-DEMO/
+    ├── examples/                 ;示例代码
+    │   ├── client/               ;MCP Client 使用示例代码
+    │   └── server/               ;MCP Server 使用示例代码
+    ├── lib/                ;本地dylib动态库代码
+    │   ├── rcim_client.py  ;IM SDK客户端代码
+    │   └── rcim_listener.py ;IM SDK监听器代码
+    └── src/                      ;业务代码
+        ├── client/             ;MCP 协议 Client代码（依赖 MCP 框架，调用 MCP Server（src/server））
+        ├── server/             ;MCP 协议 Server代码（依赖 src/imsdk/engine 和 MCP 框架）
+        │   └── mcp_im_server.py ;MCP IM Server实现
+        ├── imsdk/                ;IM 基础能力封装库，封装了 dylib（本身是rust语言编写）的逻辑
+        │   ├── engine.py         ;IM 基础能力代码
+        │   ├── listener.py       ;IM SDK监听器代码
+        │   └── utils.py        ;IM SDK工具函数代码
+        └── config/             ;配置文件
+    
     # Goal
     你的目标是以用户容易理解的方式帮助他们完成Python项目的设计和开发工作。你应该主动完成所有工作，而不是等待用户多次推动你。
     在理解用户需求、编写代码和解决问题时，你应始终遵循以下原则：
