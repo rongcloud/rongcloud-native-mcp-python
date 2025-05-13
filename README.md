@@ -15,6 +15,7 @@
 - 易于集成到现有Python应用中
 - 支持发送即时消息
 - 支持查询历史消息记录
+- 支持消息实时监听（轮询或SSE方式）
 - 提供异步API，易于与现代Python异步应用集成
 - 详细的日志记录，方便调试和监控
 
@@ -101,6 +102,41 @@ async def get_history_messages(self, user_id: str, count: int = 10) -> list
 - `count`: 要获取的消息数量，默认为10
 - 返回: 消息列表，每条消息为一个字典，包含 `sender`, `content`, `timestamp` 等字段
 
+#### 注册消息监听器
+
+```python
+async def register_message_listener(self, callback: Optional[Callable] = None) -> Dict[str, Any]
+```
+
+- `callback`: 收到新消息时的回调函数，参数为消息对象
+- 返回: 包含注册结果的字典，格式为 `{"success": bool, "client_id": str, "message": str}`
+
+#### 开始消息轮询
+
+```python
+async def start_message_polling(self, interval: float = 1.0, max_count: int = 20) -> Dict[str, Any]
+```
+
+- `interval`: 轮询间隔时间(秒)，默认1秒
+- `max_count`: 每次获取的最大消息数量，默认20条
+- 返回: 启动结果字典，格式为 `{"success": bool, "message": str}`
+
+#### 使用SSE开始消息监听（需要aiohttp库）
+
+```python
+async def start_sse_listening(self) -> Dict[str, Any]
+```
+
+- 返回: 启动结果字典，格式为 `{"success": bool, "message": str}`
+
+#### 停止消息监听
+
+```python
+async def stop_message_listening(self) -> Dict[str, Any]
+```
+
+- 返回: 停止结果字典，格式为 `{"success": bool, "message": str}`
+
 ## 配置
 
 默认情况下，客户端会连接到 `http://127.0.0.1:8000`。你可以在创建客户端时指定不同的服务器地址。
@@ -109,7 +145,7 @@ async def get_history_messages(self, user_id: str, count: int = 10) -> list
 
 更多示例请查看 `examples` 目录：
 
-- `client/chat_demo.py`: 一个简单的控制台聊天应用
+- `client/realtime_chat.py`: 一个支持实时消息监听的聊天应用
 
 ## 许可证
 

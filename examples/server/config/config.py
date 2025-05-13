@@ -2,38 +2,46 @@ import datetime
 import os
 
 from .rongcloud import RongCloud
-from imsdk.listener import RustListener
+from src.imsdk.listener import RustListener
 from diskcache import Cache
 user_token_cache = Cache(os.path.join(os.path.dirname(__file__)))
 
 class Config:
-    apiHost = "https://api.rong-api.com"
-    appKey = "c9kqb3rdcj1rj"
-    appSecret = "1Coiv6bC4X"
-    naviHost = "https://nav.rong-edge.com/"
-    mediaHost = "https://rtc-media-ucbj2-01.rongcloud.net"
-    stats_url = "https://stats.rong-edge.com"
-    # TODO: 删除代码
-    token = "unEF8jLCJVYYK/ByCKQaGukBtnJhhitncAsFtyPIjOY=@8yqa.cn.rongnav.com;8yqa.cn.rongcfg.com"
-
-    # apiHost = "https://api-ucqa.rongcloud.net"
-    # appKey = "c9kqb3rdkbb8j"
-    # appSecret = "uTNrkYskbNC"
-    # naviHost = "nav-aliqa.rongcloud.net"
-    # # naviHost = "http://127.0.0.1:8800"
+    # apiHost = "https://api.rong-api.com"
+    # appKey = "c9kqb3rdcj1rj"
+    # appSecret = "1Coiv6bC4X"
+    # naviHost = "https://nav.rong-edge.com/"
     # mediaHost = "https://rtc-media-ucbj2-01.rongcloud.net"
-    # stats_url = "http://stats-ucqa.rongcloud.net"
+    # stats_url = "https://stats.rong-edge.com"
+    # #TODO 删掉
+    # token= "unEF8jLCJVYYK/ByCKQaGukBtnJhhitncAsFtyPIjOY=@8yqa.cn.rongnav.com;8yqa.cn.rongcfg.com"
+    
+    # apiHost = "https://api.cn.ronghub.com"
+    # appKey = "n19jmcy59f1q9"
+    # appSecret = "CuhqdZMeuLsKj"
+    # naviHost = "https://nav.cn.ronghub.com/"
+    # mediaHost = "https://rtc-media-ucbj2-01.rongcloud.net"
+    # stats_url = "https://stats.cn.ronghub.com"
+    #
+    apiHost = "https://api-ucqa.rongcloud.net"
+    appKey = "c9kqb3rdkbb8j"
+    appSecret = "uTNrkYskbNC"
+    naviHost = "nav-aliqa.rongcloud.net"
+    # naviHost = "http://127.0.0.1:8800"
+    mediaHost = "https://rtc-media-ucbj2-01.rongcloud.net"
+    stats_url = "http://stats-ucqa.rongcloud.net"
 
 def get_token(user_id):
     key = Config.appKey + user_id
-    token = user_token_cache.get(key)
-    if token:
-        return token
+    # token = user_token_cache.get(key)
+    # if token:
+    #     return token
     server_client = RongCloud(app_key=Config.appKey, app_secret=Config.appSecret,
                               host_url=Config.apiHost,verify=False)
     token = server_client.user.getToken(user_id)["token"]
-    user_token_cache.set(key, token)
-    user_token_cache.set("user_id", user_id)
+    print(f"token: {token}")
+    # user_token_cache.set(key, token)
+    # user_token_cache.set("user_id", user_id)
     return token
 
 

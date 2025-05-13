@@ -4,10 +4,8 @@ import random
 import string
 import time
 from _ctypes import _Pointer
-from lib.rcim_client import RcimConversationType, RcimConversationType_Private, String
+from lib.rcim_client import RcimConversationType, RcimConversationType_Private
 
-# 全局引用列表，防止垃圾回收
-_global_references = []
 
 def dict_to_ctypes(auto_struct, data):
     """
@@ -20,8 +18,6 @@ def dict_to_ctypes(auto_struct, data):
     返回:
     - auto_struct 实例，其字段已根据 data 中的数据初始化。
     """
-    global _global_references
-    
     # 创建结构体实例
     struct_instance = auto_struct()
     field_names = []
@@ -36,32 +32,7 @@ def dict_to_ctypes(auto_struct, data):
             if value is None:
                 continue
             # 根据字段类型进行适当的处理
-            if field_type == String:
-                # 处理String类型字段，确保使用LP_c_char类型而不是c_char_p
-                if isinstance(value, str):
-                    str_buffer = ctypes.create_string_buffer(value.encode('utf-8'))
-                    str_ptr = ctypes.cast(str_buffer, ctypes.POINTER(ctypes.c_char))  # LP_c_char
-                    string_struct = String(str_ptr)  # 使用指针类型创建String
-                    # 保存引用防止垃圾回收
-                    _global_references.extend([str_buffer, str_ptr])
-                    setattr(struct_instance, field_name, string_struct)
-                elif isinstance(value, dict):
-                    json_str = json.dumps(value).encode('utf-8')
-                    str_buffer = ctypes.create_string_buffer(json_str)
-                    str_ptr = ctypes.cast(str_buffer, ctypes.POINTER(ctypes.c_char))  # LP_c_char
-                    string_struct = String(str_ptr)  # 使用指针类型创建String
-                    # 保存引用防止垃圾回收
-                    _global_references.extend([str_buffer, str_ptr])
-                    setattr(struct_instance, field_name, string_struct)
-                else:
-                    str_value = str(value).encode('utf-8')
-                    str_buffer = ctypes.create_string_buffer(str_value)
-                    str_ptr = ctypes.cast(str_buffer, ctypes.POINTER(ctypes.c_char))  # LP_c_char
-                    string_struct = String(str_ptr)  # 使用指针类型创建String
-                    # 保存引用防止垃圾回收
-                    _global_references.extend([str_buffer, str_ptr])
-                    setattr(struct_instance, field_name, string_struct)
-            elif issubclass(field_type, ctypes.POINTER(ctypes.c_char)):
+            if issubclass(field_type, ctypes.POINTER(ctypes.c_char)):
                 if isinstance(value, str):
                     value = value.encode('utf-8')
                 elif isinstance(value, dict):
@@ -69,8 +40,6 @@ def dict_to_ctypes(auto_struct, data):
                 else:
                     value = str(value).encode('utf-8')
                 buffer = ctypes.create_string_buffer(value)
-                # 保存引用防止垃圾回收
-                _global_references.append(buffer)
                 setattr(struct_instance, field_name, buffer)
             elif issubclass(field_type, (
                     ctypes.c_int64, ctypes.c_uint64, ctypes.c_uint, ctypes.c_int, ctypes.c_long,

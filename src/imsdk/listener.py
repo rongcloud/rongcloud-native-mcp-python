@@ -1,8 +1,16 @@
+"""
+IM SDK监听器模块
+
+用于处理各种IM消息回调和事件监听
+"""
 import datetime
 import random
 import time
+import threading
+import asyncio
+import logging
 from collections import defaultdict
-from typing import Callable
+from typing import Callable, Dict, List, Any, Optional, Set
 
 try:
     from lib import rcim_client
@@ -10,10 +18,129 @@ try:
 except ImportError as e:
     raise ImportError(f"无法导入lib.rcim_client模块: {e}。请确保lib目录已添加到Python路径，并且包含所需的模块。")
 
-# 生成一个 打印日志的装饰器
+# 配置日志
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
+)
+logger = logging.getLogger("im_listener")
+
+# 定义消息回调管理器类
+class MessageCallbackManager:
+    """消息回调管理器类，用于管理消息监听回调函数"""
+    
+    def __init__(self):
+        """初始化消息回调管理器"""
+        self.callbacks = set()  # 回调函数集合
+        self.message_queues = {}  # 客户端ID -> 消息队列
+        self.clients = set()  # 已注册的客户端ID集合
+        self.lock = threading.Lock()  # 线程锁，确保线程安全
+    
+    def register_callback(self, callback: Callable[[Dict[str, Any]], None]) -> None:
+        """
+        注册消息回调函数
+        
+        Args:
+            callback: 回调函数，接收消息数据字典作为参数
+        """
+        with self.lock:
+            self.callbacks.add(callback)
+            logger.info(f"已注册消息回调函数: {callback.__name__ if hasattr(callback, '__name__') else callback}")
+    
+    def unregister_callback(self, callback: Callable[[Dict[str, Any]], None]) -> None:
+        """
+        注销消息回调函数
+        
+        Args:
+            callback: 之前注册的回调函数
+        """
+        with self.lock:
+            if callback in self.callbacks:
+                self.callbacks.remove(callback)
+                logger.info(f"已注销消息回调函数: {callback.__name__ if hasattr(callback, '__name__') else callback}")
+    
+    def trigger_callbacks(self, message: Dict[str, Any]) -> None:
+        """
+        触发所有注册的回调函数
+        
+        Args:
+            message: 消息数据字典
+        """
+        callbacks = set()
+        with self.lock:
+            callbacks = self.callbacks.copy()
+        
+        for callback in callbacks:
+            try:
+                callback(message)
+            except Exception as e:
+                logger.error(f"执行消息回调函数时出错: {e}")
+    
+    def register_client(self, client_id: str) -> None:
+        """
+        注册客户端
+        
+        Args:
+            client_id: 客户端唯一标识
+        """
+        with self.lock:
+            self.clients.add(client_id)
+            if client_id not in self.message_queues:
+                self.message_queues[client_id] = []
+            logger.info(f"已注册客户端: {client_id}")
+    
+    def unregister_client(self, client_id: str) -> None:
+        """
+        注销客户端
+        
+        Args:
+            client_id: 客户端唯一标识
+        """
+        with self.lock:
+            if client_id in self.clients:
+                self.clients.remove(client_id)
+            if client_id in self.message_queues:
+                del self.message_queues[client_id]
+            logger.info(f"已注销客户端: {client_id}")
+    
+    def add_message_to_queues(self, message: Dict[str, Any]) -> None:
+        """
+        将消息添加到所有客户端队列
+        
+        Args:
+            message: 消息数据字典
+        """
+        with self.lock:
+            for client_id in self.clients:
+                if client_id in self.message_queues:
+                    self.message_queues[client_id].append(message)
+    
+    def get_client_messages(self, client_id: str, max_count: int = 20) -> List[Dict[str, Any]]:
+        """
+        获取并清空客户端消息队列
+        
+        Args:
+            client_id: 客户端唯一标识
+            max_count: 最大获取消息数量
+            
+        Returns:
+            消息列表
+        """
+        with self.lock:
+            if client_id not in self.message_queues:
+                return []
+            
+            messages = self.message_queues[client_id][:max_count]
+            self.message_queues[client_id] = self.message_queues[client_id][len(messages):]
+            return messages
+
+# 创建全局消息回调管理器实例
+message_callback_manager = MessageCallbackManager()
+
+# 生成一个打印日志的装饰器
 def log(func):
     def wrapper(*args, **kwargs):
-        print(f'获取监听数据 {func.__name__} with {args}')
+        logger.debug(f'监听器方法调用: {func.__name__} with {args}')
         return func(*args, **kwargs)
 
     return wrapper
@@ -115,6 +242,52 @@ class RustListener:
         else:
             return None
 
+    # 消息接收监听器，重点增强此方法的功能
+    def RcimMessageReceivedLsr(self, context, message_box, info):
+        """
+        消息接收监听器回调方法
+        
+        Args:
+            context: 上下文
+            message_box: 消息体
+            info: 消息信息
+        """
+        try:
+            # 转换为Python字典
+            message_data = ctypes_to_dict(message_box)
+            info_data = ctypes_to_dict(info)
+            
+            # 记录消息接收
+            logger.info(f"收到新消息: {message_data}")
+            
+            # 构造格式化的消息对象
+            formatted_message = {
+                "message_id": message_data.get("message_id", ""),
+                "conversation_type": message_data.get("conversation_type", 0),
+                "sender_id": message_data.get("sender_id", ""),
+                "target_id": message_data.get("target_id", ""),
+                "content": message_data.get("content", ""),
+                "timestamp": message_data.get("timestamp", int(time.time() * 1000)),
+                "extra": message_data.get("extra", ""),
+                "raw_data": message_data,
+                "info": info_data
+            }
+            
+            # 保存到监听数据
+            self.response['RcimMessageReceivedLsr'].append({
+                'message': message_data,
+                'info': info_data
+            })
+            
+            # 触发全局回调管理器中的回调
+            message_callback_manager.trigger_callbacks(formatted_message)
+            
+            # 将消息添加到所有客户端队列
+            message_callback_manager.add_message_to_queues(formatted_message)
+            
+        except Exception as e:
+            logger.error(f"处理接收消息时出错: {e}")
+
     def RcimReadReceiptResponseV2Lsr(self, context, conv_type, target_id, channel_id, message_uid, read_count,total_count):
         print("监听数据", 'RcimReadReceiptResponseV2Lsr')
         data = {
@@ -182,13 +355,6 @@ class RustListener:
         # status = ConnectionStatusC._enumvalues[status]
         print("监听数据", 'RcimConnectionStatusLsr', status)
         self.response['RcimConnectionStatusLsr'].append({'status': status})
-
-    # @log
-    def RcimMessageReceivedLsr(self, contexzxt, message_box, info):
-        data = ctypes_to_dict(message_box)
-        info = ctypes_to_dict(info)
-        print("监听数据", 'RcimMessageReceivedLsr', data, info)
-        self.response['RcimMessageReceivedLsr'].append({'message': data, 'info': info})
 
     # @log
     def RcimRecallMessageLsr(self, context, message_box, recall_notify_msg):
@@ -360,3 +526,6 @@ def demo2(cb, callback_context, path):
 def demo(cb, callback_context):
     print('788888788888788888788888788888788888788888')
     cb(callback_context, char_pointer_cast("788888"))
+
+# 导出类和实例
+__all__ = ["RustListener", "message_callback_manager"]

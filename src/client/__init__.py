@@ -3,7 +3,6 @@ IM客户端模块
 
 导出IM客户端相关功能
 """
-from typing import Any
 # 导出主要的IM客户端类
 from .mcp_im_client import IMClient
 
