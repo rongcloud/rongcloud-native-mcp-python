@@ -4,19 +4,15 @@ IM SDK监听器模块
 用于处理各种IM消息回调和事件监听
 """
 import datetime
-import random
 import time
 import threading
-import asyncio
 import logging
 from collections import defaultdict
-from typing import Callable, Dict, List, Any, Optional, Set
+from typing import Callable
 
-try:
-    from lib import rcim_client
-    from lib.rcim_utils import string_cast, char_pointer_cast, ctypes_to_dict
-except ImportError as e:
-    raise ImportError(f"无法导入lib.rcim_client模块: {e}。请确保lib目录已添加到Python路径，并且包含所需的模块。")
+from lib import rcim_client
+from lib.rcim_utils import string_cast
+from src.imsdk.util import ctypes_to_dict
 
 # 配置日志
 # logging.basicConfig(
@@ -25,130 +21,11 @@ except ImportError as e:
 # )
 logger = logging.getLogger("im_listener")
 
-# 定义消息回调管理器类
-class MessageCallbackManager:
-    """消息回调管理器类，用于管理消息监听回调函数"""
-    
-    def __init__(self):
-        """初始化消息回调管理器"""
-        self.callbacks = set()  # 回调函数集合
-        self.message_queues = {}  # 客户端ID -> 消息队列
-        self.clients = set()  # 已注册的客户端ID集合
-        self.lock = threading.Lock()  # 线程锁，确保线程安全
-    
-    def register_callback(self, callback: Callable[[Dict[str, Any]], None]) -> None:
-        """
-        注册消息回调函数
-        
-        Args:
-            callback: 回调函数，接收消息数据字典作为参数
-        """
-        with self.lock:
-            self.callbacks.add(callback)
-            logger.info(f"已注册消息回调函数: {callback.__name__ if hasattr(callback, '__name__') else callback}")
-    
-    def unregister_callback(self, callback: Callable[[Dict[str, Any]], None]) -> None:
-        """
-        注销消息回调函数
-        
-        Args:
-            callback: 之前注册的回调函数
-        """
-        with self.lock:
-            if callback in self.callbacks:
-                self.callbacks.remove(callback)
-                logger.info(f"已注销消息回调函数: {callback.__name__ if hasattr(callback, '__name__') else callback}")
-    
-    def trigger_callbacks(self, message: Dict[str, Any]) -> None:
-        """
-        触发所有注册的回调函数
-        
-        Args:
-            message: 消息数据字典
-        """
-        callbacks = set()
-        with self.lock:
-            callbacks = self.callbacks.copy()
-        
-        for callback in callbacks:
-            try:
-                callback(message)
-            except Exception as e:
-                logger.error(f"执行消息回调函数时出错: {e}")
-    
-    def register_client(self, client_id: str) -> None:
-        """
-        注册客户端
-        
-        Args:
-            client_id: 客户端唯一标识
-        """
-        with self.lock:
-            self.clients.add(client_id)
-            if client_id not in self.message_queues:
-                self.message_queues[client_id] = []
-            logger.info(f"已注册客户端: {client_id}")
-    
-    def unregister_client(self, client_id: str) -> None:
-        """
-        注销客户端
-        
-        Args:
-            client_id: 客户端唯一标识
-        """
-        with self.lock:
-            if client_id in self.clients:
-                self.clients.remove(client_id)
-            if client_id in self.message_queues:
-                del self.message_queues[client_id]
-            logger.info(f"已注销客户端: {client_id}")
-    
-    def add_message_to_queues(self, message: Dict[str, Any]) -> None:
-        """
-        将消息添加到所有客户端队列
-        
-        Args:
-            message: 消息数据字典
-        """
-        with self.lock:
-            for client_id in self.clients:
-                if client_id in self.message_queues:
-                    self.message_queues[client_id].append(message)
-    
-    def get_client_messages(self, client_id: str, max_count: int = 20) -> List[Dict[str, Any]]:
-        """
-        获取并清空客户端消息队列
-        
-        Args:
-            client_id: 客户端唯一标识
-            max_count: 最大获取消息数量
-            
-        Returns:
-            消息列表
-        """
-        with self.lock:
-            if client_id not in self.message_queues:
-                return []
-            
-            messages = self.message_queues[client_id][:max_count]
-            self.message_queues[client_id] = self.message_queues[client_id][len(messages):]
-            return messages
-
-# 创建全局消息回调管理器实例
-message_callback_manager = MessageCallbackManager()
-
-# 生成一个打印日志的装饰器
-def log(func):
-    def wrapper(*args, **kwargs):
-        logger.debug(f'监听器方法调用: {func.__name__} with {args}')
-        return func(*args, **kwargs)
-
-    return wrapper
-
 
 class RustListener:
     def __init__(self):
         self.response = defaultdict(list)
+        self.response_lock = threading.Lock()
         self.ConversationStatusLsr = rcim_client.RcimConversationStatusLsr(
             self.RcimConversationStatusLsr)
         self.LogLsr = rcim_client.RcimLogLsr(self.RcimLogLsr)
@@ -214,8 +91,10 @@ class RustListener:
         t1 = time.time()
         while True:
             if len(self.response.get(name, [])) > 10000:
-                self.response.get(name).clear()
-            data = self.response.pop(name, [])
+                with self.response_lock:
+                    self.response.get(name).clear()
+            with self.response_lock:
+                data = self.response.pop(name, [])
             if data or time.time() - t1 > timeout:
                 break
             time.sleep(0.01)
@@ -274,16 +153,8 @@ class RustListener:
             }
             
             # 保存到监听数据
-            self.response['RcimMessageReceivedLsr'].append({
-                'message': message_data,
-                'info': info_data
-            })
-            
-            # 触发全局回调管理器中的回调
-            message_callback_manager.trigger_callbacks(formatted_message)
-            
-            # 将消息添加到所有客户端队列
-            message_callback_manager.add_message_to_queues(formatted_message)
+            with self.response_lock:
+                self.response['RcimMessageReceivedLsr'].append(formatted_message)
             
         except Exception as e:
             logger.error(f"处理接收消息时出错: {e}")
@@ -298,18 +169,21 @@ class RustListener:
             'read_count': read_count,
             'total_count': total_count
         }
-        self.response['RcimReadReceiptResponseV2Lsr'].append(data)
+        with self.response_lock:
+            self.response['RcimReadReceiptResponseV2Lsr'].append(data)
 
     def RcimRtcKvSignalingLsr(self, context, kv_vec, kv_vec_len):
         print("监听数据", 'RcimRtcKvSignalingLsr')
         _list = []
         for i in range(kv_vec_len):
             _list.append(ctypes_to_dict(kv_vec[i]))
-        self.response['RcimRtcKvSignalingLsr'].append(_list)
+        with self.response_lock:
+            self.response['RcimRtcKvSignalingLsr'].append(_list)
 
     def RcimOfflineMessageSyncCompletedLsr(self, context):
         print('RcimOfflineMessageSyncCompletedLsr')
-        self.response['RcimOfflineMessageSyncCompletedLsr'].append({})
+        with self.response_lock:
+            self.response['RcimOfflineMessageSyncCompletedLsr'].append({})
 
     def RcimMessageExpansionKvUpdateLsr(self, context, key_vec, key_vec_len, msg_box):
         _list = []
@@ -317,7 +191,8 @@ class RustListener:
             _list.append(ctypes_to_dict(key_vec[i]))
         print('RcimMessageExpansionKvUpdateLsr', _list)
 
-        self.response['RcimMessageExpansionKvUpdateLsr'].append(
+        with self.response_lock:
+            self.response['RcimMessageExpansionKvUpdateLsr'].append(
             {'keys': _list, 'message': ctypes_to_dict(msg_box)})
 
     def RcimMessageExpansionKvRemoveLsr(self, context, key_vec, key_vec_len, msg_box):
@@ -325,7 +200,8 @@ class RustListener:
         for i in range(key_vec_len):
             _list.append(string_cast(key_vec[i]))
         print('RcimMessageExpansionKvRemoveLsr', _list)
-        self.response['RcimMessageExpansionKvRemoveLsr'].append(
+        with self.response_lock:
+            self.response['RcimMessageExpansionKvRemoveLsr'].append(
             {'keys': _list, 'message': ctypes_to_dict(msg_box)})
 
     # @log
@@ -333,7 +209,8 @@ class RustListener:
         _list = []
         for i in range(len):
             _list.append(ctypes_to_dict(items[i]))
-        self.response['RcimConversationStatusLsr'].append({'items': _list, 'len': len})
+        with self.response_lock:
+            self.response['RcimConversationStatusLsr'].append({'items': _list, 'len': len})
 
     # @log
     def RcimLogLsr(self, level, log_cstr):
@@ -348,13 +225,15 @@ class RustListener:
     # @log
     def RcimDatabaseStatusLsr(self, context, status):
         print("监听数据", 'RcimDatabaseStatusLsr', status)
-        self.response['RcimDatabaseStatusLsr'].append({'status': status})
+        with self.response_lock:
+            self.response['RcimDatabaseStatusLsr'].append({'status': status})
 
     # @log
     def RcimConnectionStatusLsr(self, context, status):
         # status = ConnectionStatusC._enumvalues[status]
         print("监听数据", 'RcimConnectionStatusLsr', status)
-        self.response['RcimConnectionStatusLsr'].append({'status': status})
+        with self.response_lock:
+            self.response['RcimConnectionStatusLsr'].append({'status': status})
 
     # @log
     def RcimRecallMessageLsr(self, context, message_box, recall_notify_msg):
@@ -362,46 +241,53 @@ class RustListener:
         message_box = ctypes_to_dict(message_box)
         recall_notify_msg = ctypes_to_dict(recall_notify_msg)
         print("监听数据", 'RcimRecallMessageLsr', message_box, recall_notify_msg)
-        self.response['RcimRecallMessageLsr'].append(
+        with self.response_lock:
+            self.response['RcimRecallMessageLsr'].append(
             {'message': message_box, 'recall_notify_msg': recall_notify_msg})
 
     # @log
     def RcimMessageBlockLsr(self, context, msg_block_info):
         msg_block_info = ctypes_to_dict(msg_block_info)
         print("监听数据", 'RcimMessageBlockLsr', msg_block_info)
-        self.response['RcimMessageBlockLsr'].append({'msg_block_info': msg_block_info})
+        with self.response_lock:
+            self.response['RcimMessageBlockLsr'].append({'msg_block_info': msg_block_info})
 
     # @log
     def RcimChatroomStatusLsr(self, context, code, room_id, status, response, ):
         # code = ChatroomStatusC._enumvalues[code]
         print("监听数据", 'RcimChatroomStatusLsr', code, room_id, status, response)
-        self.response['RcimChatroomStatusLsr'].append(
-            {'room_id': room_id, 'status': status, 'response': ctypes_to_dict(response),
-             'code': code})
+        with self.response_lock:
+            self.response['RcimChatroomStatusLsr'].append(
+                {'room_id': room_id, 'status': status, 'response': ctypes_to_dict(response),
+                 'code': code})
 
     def RcimChatroomKvSyncLsr(self, context, room_id):
         # code = ChatroomStatusC._enumvalues[code]
         print("监听数据", 'RcimChatroomKvSyncLsr', string_cast(room_id))
-        self.response['RcimChatroomKvSyncLsr'].append(
-            {'room_id': string_cast(room_id)})
+        with self.response_lock:
+            self.response['RcimChatroomKvSyncLsr'].append(
+                {'room_id': string_cast(room_id)})
 
     def RcimChatroomKvChangedLsr(self, context, room_id, kv_vec, kv_vec_len):
         _list = []
         for i in range(kv_vec_len):
             _list.append(ctypes_to_dict(kv_vec[i]))
         print("监听数据", 'RcimChatroomKvChangedLsr', kv_vec_len, _list)
-        self.response['RcimChatroomKvChangedLsr'].append(
-            {'room_id': string_cast(room_id), 'RcimChatroomKvInfo': _list})
+        with self.response_lock:
+            self.response['RcimChatroomKvChangedLsr'].append(
+                {'room_id': string_cast(room_id), 'RcimChatroomKvInfo': _list})
 
     def RcimChatroomMultiClientSyncLsr(self, context, sync_info):
         info = ctypes_to_dict(sync_info)
         print("监听数据", 'RcimChatroomMultiClientSyncLsr', info)
-        self.response['RcimChatroomMultiClientSyncLsr'].append(info)
+        with self.response_lock:
+            self.response['RcimChatroomMultiClientSyncLsr'].append(info)
 
     def RcimChatroomMemberBlockedLsr(self, context, block_info):
         info = ctypes_to_dict(block_info)
         print("监听数据", 'RcimChatroomMemberBlockedLsr', info)
-        self.response['RcimChatroomMemberBlockedLsr'].append(block_info)
+        with self.response_lock:
+            self.response['RcimChatroomMemberBlockedLsr'].append(block_info)
 
     def RcimChatroomMemberBannedLsr(self, context, ban_info):
 
@@ -419,7 +305,8 @@ class RustListener:
 
         info['user_id_vec'] = user_id_vec
         print("监听数据", 'RcimChatroomMemberBannedLsr', info)
-        self.response['RcimChatroomMemberBannedLsr'].append(info)
+        with self.response_lock:
+            self.response['RcimChatroomMemberBannedLsr'].append(info)
 
     def RcimChatroomMemberChangedLsr(self, context, change_info):
         info = {
@@ -432,15 +319,17 @@ class RustListener:
             user_id_vec.append(ctypes_to_dict(change_info.contents.action_vec[i]))
         info['user_id_vec'] = user_id_vec
         print("监听数据", 'RcimChatroomMemberChangedLsr', info)
-        self.response['RcimChatroomMemberChangedLsr'].append(info)
+        with self.response_lock:
+            self.response['RcimChatroomMemberChangedLsr'].append(info)
 
     def RcimChatroomKvDeleteLsr(self, context, room_id, kv_vec, kv_vec_len):
         _list = []
         for i in range(kv_vec_len):
             _list.append(ctypes_to_dict(kv_vec[i]))
         print("监听数据", 'RcimChatroomKvDeleteLsr', kv_vec_len, _list)
-        self.response['RcimChatroomKvDeleteLsr'].append(
-            {'room_id': string_cast(room_id), 'kv_vec': _list})
+        with self.response_lock:
+            self.response['RcimChatroomKvDeleteLsr'].append(
+                {'room_id': string_cast(room_id), 'kv_vec': _list})
 
     def RcimTypingStatusLsr(self, context, conv_type, target_id, channel_id, typing_status,
                             typing_status_vec_len):
@@ -454,36 +343,42 @@ class RustListener:
             typing_status_vec.append(ctypes_to_dict(typing_status[i]))
         info['typing_status_vec'] = typing_status_vec
         print("监听数据", 'RcimTypingStatusLsr', info)
-        self.response['RcimTypingStatusLsr'].append(info)
+        with self.response_lock:
+            self.response['RcimTypingStatusLsr'].append(info)
 
     def RcimMessageSearchableWordsCbLsr(self, context, obj_name, content, callback_context, cb):
         data = {'obj_name': string_cast(obj_name), 'content': string_cast(content), 'cb': cb}
         print("监听数据", 'RcimMessageSearchableWordsCbLsr', data)
-        self.response['RcimMessageSearchableWordsCbLsr'].append(data)
+        with self.response_lock:
+            self.response['RcimMessageSearchableWordsCbLsr'].append(data)
         import _thread
         _thread.start_new_thread(demo, (cb, callback_context))
         # cb(callback_context, char_pointer_cast("788888"))
 
     def RcimCmpSendCb(self, context, code):
         print("监听数据", 'RcimCmpSendCb', code)
-        self.response['RcimCmpSendCb'].append({'code': code})
+        with self.response_lock:
+            self.response['RcimCmpSendCb'].append({'code': code})
 
     def RcimConversationReadStatusLsr(self, context, conv_type, target_id, channel_id, timestamp):
         print("监听数据", 'RcimConversationReadStatusLsr', conv_type, string_cast(target_id), string_cast(channel_id),
               timestamp)
-        self.response['RcimConversationReadStatusLsr'].append(
-            {'conv_type': conv_type, 'target_id': string_cast(target_id), 'channel_id': string_cast(channel_id),
-             'timestamp': timestamp})
+        with self.response_lock:
+            self.response['RcimConversationReadStatusLsr'].append(
+                {'conv_type': conv_type, 'target_id': string_cast(target_id), 'channel_id': string_cast(channel_id),
+                 'timestamp': timestamp})
 
     def RcimMessageNotifyLsr(self, context, msg_box):
         msg_box = ctypes_to_dict(msg_box)
         print("监听数据", 'RcimMessageNotifyLsr', msg_box)
-        self.response['RcimMessageNotifyLsr'].append({'message': msg_box})
+        with self.response_lock:
+            self.response['RcimMessageNotifyLsr'].append({'message': msg_box})
 
     def RcimSightCompressCbLsr(self, context, target_width, target_height, path, callback_context, callback):
         print("监听数据", 'RcimSightCompressCbLsr', target_width, target_height, string_cast(path))
-        self.response['RcimSightCompressCbLsr'].append(
-            {'target_width': target_width, 'target_height': target_height, 'path': path})
+        with self.response_lock:
+            self.response['RcimSightCompressCbLsr'].append(
+                {'target_width': target_width, 'target_height': target_height, 'path': path})
         _path = string_cast(path)
         import _thread
         _thread.start_new_thread(demo2, (callback, callback_context, _path))
@@ -491,9 +386,10 @@ class RustListener:
     def RcimReadReceiptRequestLsr(self, context, conv_type, target_id, channel_id, message_uid):
         print("监听数据", 'RcimReadReceiptRequestLsr', conv_type, string_cast(target_id), string_cast(channel_id),
               string_cast(message_uid))
-        self.response['RcimReadReceiptRequestLsr'].append(
-            {'conv_type': conv_type, 'target_id': string_cast(target_id), 'channel_id': string_cast(channel_id),
-             'message_uid': string_cast(message_uid)})
+        with self.response_lock:
+            self.response['RcimReadReceiptRequestLsr'].append(
+                {'conv_type': conv_type, 'target_id': string_cast(target_id), 'channel_id': string_cast(channel_id),
+                 'message_uid': string_cast(message_uid)})
 
     def RcimReadReceiptResponseLsr(self, context, conv_type, target_id, channel_id, message_uid, respond_user_vec,
                                    respond_user_vec_len):
@@ -504,28 +400,22 @@ class RustListener:
         print("监听数据", 'RcimReadReceiptResponseLsr', conv_type, string_cast(target_id), string_cast(channel_id),
               string_cast(message_uid), respond_user_list, respond_user_vec_len)
 
-        self.response['RcimReadReceiptResponseLsr'].append(
-            {'conv_type': conv_type, 'target_id': string_cast(target_id), 'channel_id': string_cast(channel_id),
-             'message_uid': string_cast(target_id), 'respond_user_list': respond_user_list})
+        with self.response_lock:
+            self.response['RcimReadReceiptResponseLsr'].append(
+                {'conv_type': conv_type, 'target_id': string_cast(target_id), 'channel_id': string_cast(channel_id),
+                 'message_uid': string_cast(target_id), 'respond_user_list': respond_user_list})
 
     def RcimMessageDestructingLsr(self, context, message_box, left_duration):
         print("监听数据", 'RcimMessageDestructingLsr', ctypes_to_dict(message_box), left_duration)
-        self.response['RcimMessageDestructingLsr'].append(
-            {'message': ctypes_to_dict(message_box), 'left_duration': left_duration})
+        with self.response_lock:
+            self.response['RcimMessageDestructingLsr'].append(
+                {'message': ctypes_to_dict(message_box), 'left_duration': left_duration})
 
     def RcimMessageDestructionStopLsr(self, context, message_box):
         print("监听数据", 'RcimMessageDestructionStopLsr', ctypes_to_dict(message_box))
-        self.response['RcimMessageDestructionStopLsr'].append(
-            {'message': ctypes_to_dict(message_box)})
-
-
-def demo2(cb, callback_context, path):
-    cb(callback_context, char_pointer_cast(path))
-
-
-def demo(cb, callback_context):
-    print('788888788888788888788888788888788888788888')
-    cb(callback_context, char_pointer_cast("788888"))
+        with self.response_lock:
+            self.response['RcimMessageDestructionStopLsr'].append(
+                {'message': ctypes_to_dict(message_box)})
 
 # 导出类和实例
-__all__ = ["RustListener", "message_callback_manager"]
+__all__ = ["RustListener"]

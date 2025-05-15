@@ -81,19 +81,12 @@ class IMSDK:
         self.builder = None
         # 初始化字符串引用列表，防止垃圾回收
         self.string_references = []
-        
-        # 初始化rust_listener
-        try:
-            # 导入RustListener类
-            from src.imsdk.listener import RustListener, message_callback_manager
-            self.rust_listener = RustListener()
-            self.message_callback_manager = message_callback_manager
-            self._message_listener_registered = False
-        except Exception as e:
-            self.rust_listener = None
-            self.message_callback_manager = None
-            print(f"警告: 创建rust_listener失败: {e}")
-        
+                
+        # 导入RustListener类
+        from src.imsdk.listener import RustListener
+        self.rust_listener = RustListener()
+        self.__listening_message = False
+    
     def initialize(self, app_key: str, navi_host: str, device_id: str) -> Dict[str, Any]:
         """
         初始化IM SDK并返回状态
@@ -191,7 +184,7 @@ class IMSDK:
             self.engine = engine_ptr.contents
 
             rcim_client.rcim_engine_set_log_filter(self.engine,RcimLogLevel_Debug)
-            rcim_client.rcim_engine_set_log_listener(self.engine, None, self.rust_listener.LogLsr)
+            # rcim_client.rcim_engine_set_log_listener(self.engine, None, self.rust_listener.LogLsr)
 
             return {
                 "code": 0,
@@ -586,110 +579,18 @@ class IMSDK:
             except Exception as e:
                 print(f"释放引擎资源时发生错误: {e}")
 
-    def register_message_callback(self, callback):
-        """
-        注册消息回调函数
-        
-        Args:
-            callback: 回调函数，接收消息数据字典作为参数
-            
-        Returns:
-            成功返回True，失败返回False
-        """
-        if not self.message_callback_manager:
-            print("消息回调管理器未初始化")
-            return False
-            
-        try:
-            self.message_callback_manager.register_callback(callback)
-            return True
-        except Exception as e:
-            print(f"注册消息回调失败: {e}")
-            return False
+    def register_message_callback(self) -> None:
+        if not self.__listening_message:
+            rcim_client.rcim_engine_set_message_received_listener(self.engine, None, self.rust_listener.MessageReceivedLsr)
+            self.__listening_message = True
     
-    def unregister_message_callback(self, callback):
-        """
-        注销消息回调函数
-        
-        Args:
-            callback: 之前注册的回调函数
-            
-        Returns:
-            成功返回True，失败返回False
-        """
-        if not self.message_callback_manager:
-            print("消息回调管理器未初始化")
-            return False
-            
-        try:
-            self.message_callback_manager.unregister_callback(callback)
-            return True
-        except Exception as e:
-            print(f"注销消息回调失败: {e}")
-            return False
-    
-    def register_client(self, client_id):
-        """
-        注册客户端
-        
-        Args:
-            client_id: 客户端唯一标识
-            
-        Returns:
-            成功返回True，失败返回False
-        """
-        if not self.message_callback_manager:
-            print("消息回调管理器未初始化")
-            return False
-            
-        try:
-            self.message_callback_manager.register_client(client_id)
-            return True
-        except Exception as e:
-            print(f"注册客户端失败: {e}")
-            return False
-    
-    def unregister_client(self, client_id):
-        """
-        注销客户端
-        
-        Args:
-            client_id: 客户端唯一标识
-            
-        Returns:
-            成功返回True，失败返回False
-        """
-        if not self.message_callback_manager:
-            print("消息回调管理器未初始化")
-            return False
-            
-        try:
-            self.message_callback_manager.unregister_client(client_id)
-            return True
-        except Exception as e:
-            print(f"注销客户端失败: {e}")
-            return False
-    
-    def get_client_messages(self, client_id, max_count=20):
-        """
-        获取并清空客户端消息队列
-        
-        Args:
-            client_id: 客户端唯一标识
-            max_count: 最大获取消息数量
-            
-        Returns:
-            消息列表，失败返回空列表
-        """
-        if not self.message_callback_manager:
-            print("消息回调管理器未初始化")
-            return []
-            
-        try:
-            return self.message_callback_manager.get_client_messages(client_id, max_count)
-        except Exception as e:
-            print(f"获取客户端消息失败: {e}")
-            return []
+    def unregister_message_callback(self) -> None:
+        if self.__listening_message:
+            rcim_client.rcim_engine_set_message_received_listener(self.engine, None, None)
+            self.__listening_message = False
+
+    def is_listening_message(self) -> bool:
+        return self.__listening_message
 
 # 创建默认SDK实例，使用默认参数
 default_sdk = IMSDK() 

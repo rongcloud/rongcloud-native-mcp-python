@@ -5,8 +5,10 @@ MCP IM服务器 - 真实IM SDK的包装器
 
 """
 import asyncio
+import json
 import os
 import sys
+import threading
 from typing import Dict, Any, List
 from fastapi import FastAPI, Request
 from fastapi.responses import StreamingResponse
@@ -49,12 +51,7 @@ ServerSession._received_request = _received_request
 
 # 创建MCP应用
 app = FastMCP("im-server")
-
-
-# 导入我们的工具类
-from lib.rcim_client import RcimConversationType, RcimConversationType_Private, RcimConversationType_Group
-from src.utils.mcp_utils import MCPServerUtils
-
+app_fastapi = FastAPI()
 
 @app.tool()
 def init_and_connect(
@@ -169,6 +166,46 @@ def get_history_messages(
     messages = default_sdk.get_history_messages(user_id, count)
     return messages
 
+@app.tool()
+async def subscribe_chat_message() -> Dict[str, Any]:
+    default_sdk.register_message_callback()
+    return {"code": 0, "message": "消息订阅成功"}
+
+@app.tool()
+async def unsubscribe_chat_message() -> Dict[str, Any]:
+    default_sdk.unregister_message_callback()
+    return {"code": 0, "message": "消息订阅取消成功"}
+
+@app_fastapi.get("/mcp")
+async def mcp_message_stream():
+    print("`11`")
+    async def event_generator():
+        while True:
+            print("123")
+            if not default_sdk.is_listening_message():
+                continue
+            # 1. 检查新消息（从队列/数据库/事件总线）
+            datas = default_sdk.rust_listener.response['RcimMessageReceivedLsr']
+            if len(datas) > 0:
+                print(f"_____收到消息: {len(datas)}")
+                with threading.Lock():
+                    datas = default_sdk.rust_listener.response['RcimMessageReceivedLsr']
+                    default_sdk.rust_listener.response['RcimMessageReceivedLsr'].clear()
+                while len(datas) > 0:
+                    datas.reverse()
+                    data = datas.pop()
+                    result = json.dumps(data)
+                    print(f"收到消息: {result}")
+                    yield f"{result}\n\n"
+            yield f"{json.dumps(datas)}\n\n"
+            # 每1秒循环一次，避免高频空转
+            await asyncio.sleep(1)
+            
+    return StreamingResponse(
+        event_generator(),
+        media_type="text/event-stream",
+        headers={"Mcp-Protocol": "2025-03-26"}
+    )
 
 # 定义启动和关闭函数
 async def startup():
@@ -181,130 +218,15 @@ async def shutdown():
     # 确保SDK资源被释放
     default_sdk.close()
 
-# 实现基于SSE的消息推送服务（可选）
-try:
-    from fastapi import FastAPI, Request
-    from fastapi.responses import StreamingResponse
-    import json
-    import asyncio
-
-    # 创建FastAPI应用
-    app_fastapi = FastAPI()
-
-    @app_fastapi.get("/events/{client_id}")
-    async def message_stream(client_id: str, request: Request):
-        """SSE消息流接口"""
-        logger.info(f"客户端 {client_id} 已连接SSE消息流")
-        
-        # 确保客户端已注册
-        default_sdk.register_client(client_id)
-        
-        async def event_generator():
-            try:
-                while True:
-                    # 客户端断开连接时退出
-                    if await request.is_disconnected():
-                        logger.info(f"客户端 {client_id} SSE连接已断开")
-                        break
-                    
-                    # 获取所有消息
-                    messages = default_sdk.get_client_messages(client_id)
-                    
-                    # 如果有消息，发送到客户端
-                    if messages:
-                        yield f"data: {json.dumps(messages)}\n\n"
-                    
-                    # 等待一段时间
-                    await asyncio.sleep(0.5)
-            except Exception as e:
-                logger.error(f"SSE流处理错误: {e}")
-            finally:
-                # 确保在连接关闭时清理资源
-                default_sdk.unregister_client(client_id)
-                logger.info(f"客户端 {client_id} SSE连接资源已清理")
-        
-        return StreamingResponse(event_generator(), media_type="text/event-stream")
-
-    # 修改run_server函数，支持多种传输方式
-    def run_server(host: str = "127.0.0.1", port: int = 8000, transport: str = "sse"):
-        """
-        运行MCP服务器
-        
-        Args:
-            host: 服务器主机地址
-            port: 服务器端口
-            transport: 传输协议，可选 "sse"（Server-Sent Events）、"websocket"或"stdio"
-        """
-        logger.info(f"启动IM MCP服务器: {host}:{port}, 传输协议: {transport}")
-        
-        if transport == "stdio":
-            # 使用stdio方式运行
-            logger.info("使用stdio传输方式")
-            MCPServerUtils.run_app(app, transport="stdio")
-        else:
-            # 使用HTTP方式运行，支持SSE
-            # 将FastAPI应用安装到MCP应用中
-            from fastapi.middleware.wsgi import WSGIMiddleware
-            
-            # 将FastAPI应用安装到MCP应用中
-            try:
-                # FastMCP对象可能有不同的属性结构
-                if hasattr(app, 'app'):
-                    app.app.mount("/sse", WSGIMiddleware(app_fastapi))
-                elif hasattr(app, 'router'):
-                    app.router.mount("/sse", WSGIMiddleware(app_fastapi))
-                else:
-                    # 如果无法直接挂载，创建一个单独的FastAPI服务器
-                    import threading
-                    import uvicorn
-                    
-                    def run_fastapi_server():
-                        logger.info(f"启动独立的FastAPI服务器（SSE）: {host}:{port+1}")
-                        uvicorn.run(app_fastapi, host=host, port=port+1)
-                    
-                    # 在单独的线程中启动FastAPI服务器
-                    fastapi_thread = threading.Thread(target=run_fastapi_server)
-                    fastapi_thread.daemon = True  # 设置为守护线程，主线程结束时自动结束
-                    fastapi_thread.start()
-                    
-                    logger.info(f"SSE服务可通过 http://{host}:{port+1}/events/{{client_id}} 访问")
-            except Exception as e:
-                logger.warning(f"挂载FastAPI应用时出错: {e}")
-                logger.warning(f"SSE服务可能不可用，但其他MCP服务仍正常运行")
-            
-            # 使用工具类运行应用
-            MCPServerUtils.run_app(app, host=host, port=port, transport=transport)
-except Exception as e:
-    logger.warning(f"设置传输层时出错: {e}")
     
-    # 备用run_server函数
-    def run_server(host: str = "127.0.0.1", port: int = 8000, transport: str = "sse"):
-        """
-        运行MCP服务器
-        
-        Args:
-            host: 服务器主机地址
-            port: 服务器端口
-            transport: 传输协议，可选 "sse"（Server-Sent Events）、"websocket"或"stdio"
-        """
-        logger.info(f"启动IM MCP服务器: {host}:{port}, 传输协议: {transport}")
-        
-        if transport == "stdio":
-            # 使用stdio方式运行
-            logger.info("使用stdio传输方式")
-            MCPServerUtils.run_app(app, transport="stdio")
-        else:
-            # 使用HTTP方式运行
-            MCPServerUtils.run_app(app, host=host, port=port, transport=transport)
-
 if __name__ == "__main__":
     import argparse
     
     parser = argparse.ArgumentParser(description="运行IM MCP服务器")
     parser.add_argument("--host", default="127.0.0.1", help="服务器主机地址")
     parser.add_argument("--port", type=int, default=8000, help="服务器端口")
-    parser.add_argument("--transport", default="sse", choices=["sse", "websocket", "stdio"], 
-                       help="传输协议，可选 'sse'（Server-Sent Events）、'websocket'或'stdio'")
+    parser.add_argument("--transport", default="streamable-http", choices=["sse", "streamable-http", "stdio"], 
+                       help="传输协议，可选 'sse'（Server-Sent Events）、'streamable-http'或'stdio'")
     
     args = parser.parse_args()
     
@@ -318,4 +240,4 @@ if __name__ == "__main__":
     print("- register_message_listener: 注册消息监听器")
     print("- unregister_message_listener: 注销消息监听器")
     
-    run_server(args.host, args.port, args.transport) 
+    app.run(transport="streamable-http")
