@@ -5,11 +5,12 @@ MCP IM服务器 - 真实IM SDK的包装器
 
 """
 import asyncio
-import logging
 import os
 import sys
-from typing import Dict, Any, List, Optional
-from dataclasses import dataclass
+from typing import Dict, Any, List
+from fastapi import FastAPI, Request
+from fastapi.responses import StreamingResponse
+import asyncio
 
 # 添加项目根目录到Python路径
 project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), "../.."))
@@ -19,17 +20,13 @@ if project_root not in sys.path:
 # 修复导入路径
 from mcp import ServerSession
 from mcp.server.fastmcp import FastMCP
-from mcp.types import Tool
 
 # 导入IM SDK
 from src.imsdk import default_sdk
 
 # 配置日志
-logging.basicConfig(
-    level=logging.INFO,
-    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
-)
-logger = logging.getLogger("rc_im_mcp_server")
+from src.utils.mcp_utils import ServerLog
+logger = ServerLog.getLogger("rc_im_mcp_server")
 
 ####################################################################################
 # Temporary monkeypatch which avoids crashing when a POST message is received
@@ -172,107 +169,17 @@ def get_history_messages(
     messages = default_sdk.get_history_messages(user_id, count)
     return messages
 
-@app.tool()
-def register_message_listener(
-    client_id: str
-) -> Dict[str, Any]:
-    """
-    注册消息监听器
-    
-    Args:
-        client_id: 客户端唯一标识ID
-        
-    Returns:
-        包含注册结果的字典
-    """
-    logger.info(f"注册消息监听器，客户端ID: {client_id}")
-    
-    try:
-        # 调用SDK注册客户端
-        result = default_sdk.register_client(client_id)
-        
-        if result:
-            return {
-                "success": True,
-                "client_id": client_id,
-                "message": "消息监听器注册成功"
-            }
-        else:
-            return {
-                "success": False,
-                "error": "消息监听器注册失败"
-            }
-    except Exception as e:
-        logger.error(f"注册消息监听器失败: {e}")
-        return {
-            "success": False,
-            "error": str(e)
-        }
 
-@app.tool()
-def unregister_message_listener(
-    client_id: str
-) -> Dict[str, Any]:
-    """
-    注销消息监听器
-    
-    Args:
-        client_id: 客户端唯一标识ID
-        
-    Returns:
-        包含注销结果的字典
-    """
-    logger.info(f"注销消息监听器，客户端ID: {client_id}")
-    
-    try:
-        # 调用SDK注销客户端
-        result = default_sdk.unregister_client(client_id)
-        
-        if result:
-            return {
-                "success": True,
-                "message": "消息监听器注销成功"
-            }
-        else:
-            return {
-                "success": False,
-                "error": "消息监听器注销失败"
-            }
-    except Exception as e:
-        logger.error(f"注销消息监听器失败: {e}")
-        return {
-            "success": False,
-            "error": str(e)
-        }
+# 定义启动和关闭函数
+async def startup():
+    """服务器启动时执行"""
+    logger.info("IM MCP服务器正在启动...")
 
-
-
-# 检查FastMCP是否支持on_startup和on_shutdown
-# 如果不支持，则改用其他方式处理启动和关闭逻辑
-try:
-    @app.on_startup
-    async def startup():
-        """服务器启动时执行"""
-        logger.info("IM MCP服务器正在启动...")
-
-    @app.on_shutdown
-    async def shutdown():
-        """服务器关闭时执行"""
-        logger.info("IM MCP服务器正在关闭...")
-        # 确保SDK资源被释放
-        default_sdk.close()
-except AttributeError:
-    logger.info("FastMCP不支持on_startup和on_shutdown，将在run_server中处理启动和关闭逻辑")
-    # 定义启动和关闭函数
-    async def startup():
-        """服务器启动时执行"""
-        logger.info("IM MCP服务器正在启动...")
-
-    async def shutdown():
-        """服务器关闭时执行"""
-        logger.info("IM MCP服务器正在关闭...")
-        # 确保SDK资源被释放
-        default_sdk.close()
+async def shutdown():
+    """服务器关闭时执行"""
+    logger.info("IM MCP服务器正在关闭...")
+    # 确保SDK资源被释放
+    default_sdk.close()
 
 # 实现基于SSE的消息推送服务（可选）
 try:
@@ -405,11 +312,10 @@ if __name__ == "__main__":
     print("这是连接到真实IM SDK的服务器实现，将会执行实际的消息收发。")
     print(f"\n服务器配置: {args.host}:{args.port}, 传输方式: {args.transport}")
     print("\n可用工具:")
-    print("- initAndConnect: 初始化IM引擎并连接到IM服务")
-    print("- sendMessage: 发送消息")
-    print("- getHistoryMessages: 获取历史消息")
-    print("- registerMessageListener: 注册消息监听器")
-    print("- unregisterMessageListener: 注销消息监听器")
-    print("\n注意: 如果只需测试，请使用examples/server/app_server.py\n")
+    print("- init_and_connect: 初始化IM引擎并连接到IM服务")
+    print("- send_message: 发送消息")
+    print("- get_history_messages: 获取历史消息")
+    print("- register_message_listener: 注册消息监听器")
+    print("- unregister_message_listener: 注销消息监听器")
     
     run_server(args.host, args.port, args.transport) 

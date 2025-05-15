@@ -19,10 +19,10 @@ except ImportError as e:
     raise ImportError(f"无法导入lib.rcim_client模块: {e}。请确保lib目录已添加到Python路径，并且包含所需的模块。")
 
 # 配置日志
-logging.basicConfig(
-    level=logging.INFO,
-    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
-)
+# logging.basicConfig(
+#     level=logging.INFO,
+#     format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
+# )
 logger = logging.getLogger("im_listener")
 
 # 定义消息回调管理器类

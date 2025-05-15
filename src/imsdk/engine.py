@@ -22,7 +22,6 @@ if _ROOT_DIR not in sys.path:
     sys.path.append(_ROOT_DIR)
 
 # 导入rcim_client模块
-from examples.server.config.config import Config
 from src.imsdk.util import dict_to_ctypes,ctypes_to_dict
 from lib import rcim_client
 from lib.rcim_utils import string_cast, char_pointer_cast
