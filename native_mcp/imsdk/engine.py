@@ -361,7 +361,7 @@ class IMSDK:
         Args:
             target_id: 目标ID(单聊用户ID或者群ID)
             count: 获取的消息数量，默认为10
-            timestamp: 时间戳，默认为0（从最新消息开始）
+            timestamp: 时间戳，待查询消息的发送时间，若为 0 则代表最近一条消息的发送时间，取值范围 [0, INT64_MAX]
             order: 排序方式，0为降序，1为升序
             
         Returns:
@@ -373,10 +373,7 @@ class IMSDK:
 
         if USER_ID == "":
             return {"code": -1, "message": "未连接"}
-        
-        # 根据timestamp判断是否为"从头开始"
-        is_forward = True if timestamp == 0 else False
-        
+                
         # 创建同步事件
         done_event = threading.Event()
 
@@ -409,7 +406,6 @@ class IMSDK:
         count_c = ctypes.c_int(count)
         timestamp_c = ctypes.c_int64(timestamp)
         order_enum = rcim_client.RcimOrder_Descending if order == 0 else rcim_client.RcimOrder_Ascending
-        is_forward_c = ctypes.c_bool(is_forward)
         
         # 调用远程历史消息函数
         rcim_client.rcim_engine_get_remote_history_messages(
@@ -420,7 +416,7 @@ class IMSDK:
             timestamp_c,  # 时间戳
             count_c,  # 消息数量
             order_enum,  # 排序方式
-            is_forward_c,  # 是否正向获取
+            True,  # 是否正向获取
             None,  # user_data
             callback_fn  # 回调函数
         )
