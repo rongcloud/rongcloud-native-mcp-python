@@ -58,30 +58,24 @@ app = FastMCP("im-server")
 from lib.rcim_client import RcimConversationType, RcimConversationType_Private, RcimConversationType_Group
 from src.utils.mcp_utils import MCPServerUtils
 
-# 由于mcp库没有导出Parameter，我们需要自己定义一个简单版本
-@dataclass
-class Parameter:
-    description: str
-    default: Optional[Any] = None
 
-@app.tool("initAndConnect")
+@app.tool()
 def init_and_connect(
-    app_key: str = Parameter(description="应用标识（AppKey）"),
-    device_id: str = Parameter(description="设备ID", default="mcp_demo"),
-    token: str = Parameter(description="用户连接token"),
-    timeout_sec: int = Parameter(description="连接超时时间，单位为秒", default=30)
+    app_key: str = "c9kqb3rdkbb8j",
+    navi_host: str = "nav-aliqa.rongcloud.net",
+    device_id: str = "mcp_demo",
+    token: str = "9wsuWlmIb40dlPLyqnPPDg4tAoQYZad98YSv/s428ofgnNDij3yLM3JlkLD9dTPSmyX6mtamT12R6SRDHOAAfQ==",
+    timeout_sec: int = 30
 ) -> Dict[str, Any]:
     """
     初始化IM引擎并连接到IM服务器
     
     Args:
-        app_key: 应用的AppKey
+        app_key: 应用的AppKey"
+        navi_host: 导航地址
         device_id: 设备ID
         token: 用户连接token
-        timeout_sec: 连接超时时间，单位为秒，默认为30秒
-        
-    Returns:
-        包含初始化和连接结果的字典
+        timeout_sec: 连接超时时间，单位为秒
     """
     logger.info(f"正在初始化并连接IM服务器，AppKey: {app_key}, 设备ID: {device_id}, token长度: {len(token)}, 超时: {timeout_sec}秒")
     
@@ -96,7 +90,7 @@ def init_and_connect(
         device_id_str = str(device_id) if device_id is not None else "mcp_demo"
                     
         # 使用IMSDK的initialize方法初始化引擎
-        init_result = default_sdk.initialize(app_key_str, device_id_str)
+        init_result = default_sdk.initialize(app_key_str, navi_host, device_id_str)
         if init_result.get("code", -1) != 0:
             logger.error(f"IM引擎初始化失败: {init_result}")
             return init_result
@@ -123,11 +117,11 @@ def init_and_connect(
         "connect_success": True
     }
     
-@app.tool("sendMessage")
+@app.tool()
 def send_message(
-    receiver: str = Parameter(description="消息接收者的ID"),
-    content: str = Parameter(description="要发送的消息内容"),
-    conversation_type: int = Parameter(description="会话类型，1=单聊，2=群聊", default=1)
+    receiver: str = "DXIhdtUm7",
+    content: str = "测试消息",
+    conversation_type: int = 1
 ) -> Dict[str, Any]:
     """
     发送IM消息给指定用户(单聊或群聊)
@@ -159,10 +153,10 @@ def send_message(
             "error": str(e)
         }
 
-@app.tool("getHistoryMessages")
+@app.tool()
 def get_history_messages(
-    user_id: str = Parameter(description="用户ID，获取与该用户的历史消息"),
-    count: int = Parameter(description="要获取的消息数量", default=10),
+    user_id: str = "DXIhdtUm7",
+    count: int = 10,
 ) -> List[Dict[str, Any]]:
     """
     获取与指定用户的历史消息
@@ -176,12 +170,11 @@ def get_history_messages(
     """
     logger.info(f"正在获取与用户 {user_id} 的 {count} 条历史消息")
     messages = default_sdk.get_history_messages(user_id, count)
-    logger.info(f"获取历史消息成功: {messages}")
     return messages
 
-@app.tool("registerMessageListener")
+@app.tool()
 def register_message_listener(
-    client_id: str = Parameter(description="客户端ID，用于标识消息接收者")
+    client_id: str
 ) -> Dict[str, Any]:
     """
     注册消息监听器
@@ -216,9 +209,9 @@ def register_message_listener(
             "error": str(e)
         }
 
-@app.tool("unregisterMessageListener")
+@app.tool()
 def unregister_message_listener(
-    client_id: str = Parameter(description="客户端ID")
+    client_id: str
 ) -> Dict[str, Any]:
     """
     注销消息监听器

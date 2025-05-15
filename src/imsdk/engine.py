@@ -9,6 +9,7 @@ import ctypes
 import platform
 import sys
 import time
+import threading
 from typing import Dict, Any, List
 
 # 获取动态库文件的绝对路径
@@ -22,9 +23,9 @@ if _ROOT_DIR not in sys.path:
 
 # 导入rcim_client模块
 from examples.server.config.config import Config
-from src.imsdk.util import dict_to_ctypes
+from src.imsdk.util import dict_to_ctypes,ctypes_to_dict
 from lib import rcim_client
-from lib.rcim_utils import string_cast, char_pointer_cast, ctypes_to_dict
+from lib.rcim_utils import string_cast, char_pointer_cast
 # 从rcim_client导入所需类型
 from lib.rcim_client import (
     RcimConversationType_Group,
@@ -94,7 +95,7 @@ class IMSDK:
             self.message_callback_manager = None
             print(f"警告: 创建rust_listener失败: {e}")
         
-    def initialize(self, app_key: str, device_id: str) -> Dict[str, Any]:
+    def initialize(self, app_key: str, navi_host: str, device_id: str) -> Dict[str, Any]:
         """
         初始化IM SDK并返回状态
         
@@ -160,7 +161,7 @@ class IMSDK:
                 print(f"rcim_engine_builder_set_store_path failed, error code: {ret}")
 
             # 设置navi服务器
-            navi_list = [Config.naviHost]
+            navi_list = [navi_host]
             char_ptrs = (ctypes.POINTER(ctypes.c_char) * len(navi_list))()
             for i, string in enumerate(navi_list):
                 if string is None:
@@ -471,28 +472,26 @@ class IMSDK:
             # 根据timestamp判断是否为"从头开始"
             is_forward = True if timestamp == 0 else False
             
-            # 创建回调数据类
+            # 创建同步事件
+            done_event = threading.Event()
+
             class GetMessagesData:
                 def __init__(self):
                     self.messages = []
                     self.code = -1
-                
+
                 def callback(self, user_data, code, messages, messages_len):
-                    try:
-                        print(f"获取远程消息回调: code={code}, message_count={messages_len}")
-                        self.code = code
-                        
-                        if code == 0 and messages and messages_len > 0:
-                            # 转换消息为Python对象
-                            for i in range(messages_len):
-                                try:
-                                    msg_dict = ctypes_to_dict(messages[i])
-                                    message = dict_to_ctypes(RcimMessageBox, msg_dict)
-                                    self.messages.append(message)
-                                except Exception as e:
-                                    print(f"转换消息 {i} 失败: {e}")
-                    except Exception as e:
-                        print(f"回调函数内部错误: {e}")
+                    print(f"获取远程消息回调: code={code}, message_count={messages_len}")
+                    self.code = code
+                    if code == 0 and messages and messages_len > 0:
+                        print("-1")
+                        for i in range(messages_len):
+                            msg_dict = ctypes_to_dict(messages[i])
+                            print(f"i={i}")
+                            self.messages.append(msg_dict)
+                    print(f"-2")
+                    done_event.set()  # 回调结束，通知主线程
+                    print(f"-3")
             
             # 创建回调数据
             callback_data = GetMessagesData()
@@ -503,6 +502,7 @@ class IMSDK:
                     return callback_data.callback(user_data, code, messages, messages_len)
                 except Exception as e:
                     print(f"回调包装函数错误: {e}")
+                    done_event.set()
                     return None
             
             # 创建回调函数
@@ -546,17 +546,21 @@ class IMSDK:
                 # 找不到获取远程历史消息的函数
                 return [{"code": -1, "error": "动态库中没有找到获取远程历史消息的函数"}]
             
-            # 等待回调完成
-            time.sleep(1)  # 等待回调执行
+            # 等待回调，最多5秒
+            finished = done_event.wait(timeout=5)
+            print(f"获取历史消息回调结束: {finished}")
             self.string_references.remove(callback_fn)
-            
-            # 如果回调失败或没有消息，返回空列表
+
+            if not finished:
+                print("获取历史消息超时，未收到回调")
+                return [{"code": -2, "error": "获取历史消息超时，未收到回调"}]
+
             if callback_data.code != 0:
                 return [{"code": callback_data.code, "error": callback_data.messages}]
             elif not callback_data.messages:
                 print("未收到回调结果或消息为空，返回空列表")
                 return []
-            
+
             return callback_data.messages
         except Exception as e:
             import traceback

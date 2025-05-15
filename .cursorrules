@@ -10,13 +10,13 @@
     # 项目文件目录和架构
     RC-IM-MCP-DEMO/
     ├── examples/                 ;示例代码
-    │   ├── client/               ;MCP Client 使用示例代码
-    │   └── server/               ;MCP Server 使用示例代码
+    │   ├── client/               ;MCP Client 使用示例代码（调用 src/client 中的api）
+    │   └── server/               ;MCP Server 使用示例代码（）
     ├── lib/                ;本地dylib动态库代码
     │   ├── rcim_client.py  ;IM SDK客户端代码
     │   └── rcim_listener.py ;IM SDK监听器代码
     └── src/                      ;业务代码
-        ├── client/             ;MCP 协议 Client代码（依赖 MCP 框架，调用 MCP Server（src/server））
+        ├── client/             ;MCP 协议 Client代码（依赖 MCP 框架，对应用层提供API，内部调用 MCP Server（src/server））
         ├── server/             ;MCP 协议 Server代码（依赖 src/imsdk/engine 和 MCP 框架）
         │   └── mcp_im_server.py ;MCP IM Server实现
         ├── imsdk/                ;IM 基础能力封装库，封装了 dylib（本身是rust语言编写）的逻辑
