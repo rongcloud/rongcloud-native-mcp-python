@@ -1,156 +1,138 @@
-# MCP IM 客户端
+# RC-IM-MCP-DEMO
 
-一个基于MCP协议的即时通讯(IM)客户端SDK，可用于构建聊天应用和其他需要即时通讯功能的应用程序。
+## 项目简介
 
-## 项目说明
+本项目是一个基于 MCP 协议的 Python IM 服务端演示，集成了真实的 IM SDK（通过本地动态库），并通过 MCP 协议对外提供标准化的消息服务能力。项目支持消息收发、历史消息查询、连接管理等功能，适配 MCP Inspector、MCP Client 等工具。
 
-本项目提供了一个简单易用的Python SDK，用于与基于MCP协议的IM服务进行交互。它包含以下组件：
+## 目录结构
 
-1. **MCP IM 客户端**: 一个用于连接到MCP IM服务器的客户端库
-2. **MCP IM 服务端**: 一个本地的IM服务器实现
-3. **示例应用**: 演示如何使用客户端库的示例代码
+```
+RC-IM-MCP-DEMO/
+├── README.md
+├── main.py
+├── pyproject.toml
+├── uv.lock
+├── lib/
+│   ├── rcim_client.py
+│   ├── rcim_utils.py
+│   ├── rcim_client.h
+│   └── librust_universal_imsdk.dylib
+├── src/
+│   ├── imsdk/
+│   │   ├── engine.py
+│   │   ├── util.py
+│   │   └── ...
+│   ├── server/
+│   │   ├── mcp_im_server.py
+│   │   └── __init__.py
+│   ├── utils/
+│   │   ├── mcp_utils.py
+│   │   └── __init__.py
+│   └── package.json
+├── .venv/
+├── .vscode/
+└── ...
+```
 
-## 功能特点
+## 主要功能与工具（tools）说明
 
-- 易于集成到现有Python应用中
-- 支持发送即时消息
-- 支持查询历史消息记录
-- 支持消息实时监听（轮询或SSE方式）
-- 提供异步API，易于与现代Python异步应用集成
-- 详细的日志记录，方便调试和监控
+服务端（`src/server/mcp_im_server.py`）通过 MCP 协议暴露以下工具：
 
-## 安装
+### 1. `init_and_connect`
+
+- **功能**：初始化 IM 引擎并连接到 IM 服务器。
+- **参数**：
+  - `timeout_sec` (int, 默认30)：连接超时时间（秒）。
+- **返回**：
+  - `code` (int)：0 表示成功，非0为失败。
+  - `message` (str)：结果说明。
+  - `init_success` (bool)：初始化是否成功。
+  - `connect_success` (bool)：连接是否成功。
+
+### 2. `send_message`
+
+- **功能**：发送 IM 消息给指定用户（支持单聊/群聊）。
+- **参数**：
+  - `receiver` (str)：消息接收者ID。
+  - `content` (str)：消息内容。
+  - `conversation_type` (int, 默认1)：会话类型，1=单聊，2=群聊。
+- **返回**：
+  - 失败：`code`、`message`。
+  - 成功：`code`、`message_id`、`message`。
+
+### 3. `get_history_messages`
+
+- **功能**：获取与指定用户的历史消息。
+- **参数**：
+  - `user_id` (str)：用户ID。
+  - `count` (int, 默认10)：获取的消息数量。
+- **返回**：
+  - 失败：`code`、`message`。
+  - 成功：`code`、`messages`（消息数组）。
+
+### 4. `disconnect`
+
+- **功能**：断开与 IM 服务器的连接。
+- **参数**：无
+- **返回**：
+  - `code` (int)：0 表示成功，非0为失败。
+  - `message` (str)：结果说明。
+
+## 环境变量配置
+
+服务端依赖以下环境变量，请在启动前设置：
+
+- `APP_KEY`：IM 应用的 AppKey。
+- `TOKEN`：IM 用户连接 Token。
+- `NAVI_HOST`：IM SDK 导航服务器地址。
+
+**示例（Linux/macOS）：**
 
 ```bash
-# 克隆仓库
-git clone https://github.com/yourusername/mcp-im-client.git
-cd mcp-im-client
-
-# 安装依赖
-pip install -r requirements.txt
+export APP_KEY=your_app_key
+export TOKEN=your_token
+export NAVI_HOST=your_navi_host
 ```
 
-## 使用方法
+## 启动服务
 
-### 客户端使用
+1. 安装依赖：
 
-创建一个IM客户端并使用它来发送和接收消息：
+   ```bash
+   pip install -r requirements.txt
+   # 或
+   pip install .
+   ```
 
-```python
-import asyncio
-from src.client import IMClient
+2. 启动服务端：
 
-async def main():
-    # 创建客户端实例
-    client = IMClient("http://127.0.0.1:8000")
-    
-    # 发送消息
-    result = await client.send_message("user123", "你好！这是一条测试消息")
-    print(f"发送结果: {result}")
-    
-    # 获取历史消息
-    messages = await client.get_history_messages("user123", 10)
-    print(f"历史消息: {messages}")
+   ```bash
+   python src/server/mcp_im_server.py
+   # 或指定端口/协议
+   # APP_KEY=xxx TOKEN=xxx NAVI_HOST=xxx python src/server/mcp_im_server.py
+   ```
 
-if __name__ == "__main__":
-    asyncio.run(main())
-```
+3. 服务端默认以 MCP Streamable HTTP 协议对外提供服务，端口为 8000。
 
-### 运行演示应用
+## 客户端调用
 
-项目包含一个简单的聊天演示应用，可以直接运行：
+- 推荐使用 MCP Inspector、MCP Client 或自定义 Python 客户端调用 MCP 工具接口。
+- 也可通过 HTTP POST 方式直接调用 MCP 工具接口。
 
-```bash
-python examples/client/chat_demo.py
-```
+## 典型用例
 
-你也可以指定自定义服务器地址：
+- **初始化并连接**：调用 `init_and_connect` 工具。
+- **发送消息**：调用 `send_message` 工具。
+- **获取历史消息**：调用 `get_history_messages` 工具。
+- **断开连接**：调用 `disconnect` 工具。
 
-```bash
-python examples/client/chat_demo.py --server http://custom-server:8080
-```
+## 注意事项
 
-## API 参考
+- 启动服务前请确保本地 IM SDK 动态库和依赖已正确配置。
+- 环境变量必须设置正确，否则服务无法正常启动。
+- 工具接口参数和返回值请严格按照上文说明传递和解析。
+- 如需扩展更多工具，可在 `src/server/mcp_im_server.py` 中添加新的 `@app.tool()`。
 
-### IMClient 类
+---
 
-#### 构造函数
-
-```python
-def __init__(self, server_url: str = "http://127.0.0.1:8000")
-```
-
-- `server_url`: MCP服务器的URL地址
-
-#### 发送消息
-
-```python
-async def send_message(self, to_user: str, content: str) -> dict
-```
-
-- `to_user`: 接收消息的用户ID
-- `content`: 要发送的消息内容
-- 返回: 包含操作结果的字典，格式为 `{"success": bool, "error": str}`
-
-#### 获取历史消息
-
-```python
-async def get_history_messages(self, user_id: str, count: int = 10) -> list
-```
-
-- `user_id`: 要获取与之的聊天历史的用户ID
-- `count`: 要获取的消息数量，默认为10
-- 返回: 消息列表，每条消息为一个字典，包含 `sender`, `content`, `timestamp` 等字段
-
-#### 注册消息监听器
-
-```python
-async def register_message_listener(self, callback: Optional[Callable] = None) -> Dict[str, Any]
-```
-
-- `callback`: 收到新消息时的回调函数，参数为消息对象
-- 返回: 包含注册结果的字典，格式为 `{"success": bool, "client_id": str, "message": str}`
-
-#### 开始消息轮询
-
-```python
-async def start_message_polling(self, interval: float = 1.0, max_count: int = 20) -> Dict[str, Any]
-```
-
-- `interval`: 轮询间隔时间(秒)，默认1秒
-- `max_count`: 每次获取的最大消息数量，默认20条
-- 返回: 启动结果字典，格式为 `{"success": bool, "message": str}`
-
-#### 使用SSE开始消息监听（需要aiohttp库）
-
-```python
-async def start_sse_listening(self) -> Dict[str, Any]
-```
-
-- 返回: 启动结果字典，格式为 `{"success": bool, "message": str}`
-
-#### 停止消息监听
-
-```python
-async def stop_message_listening(self) -> Dict[str, Any]
-```
-
-- 返回: 停止结果字典，格式为 `{"success": bool, "message": str}`
-
-## 配置
-
-默认情况下，客户端会连接到 `http://127.0.0.1:8000`。你可以在创建客户端时指定不同的服务器地址。
-
-## 示例
-
-更多示例请查看 `examples` 目录：
-
-- `client/realtime_chat.py`: 一个支持实时消息监听的聊天应用
-
-## 许可证
-
-MIT
-
-## 贡献
-
-欢迎提交问题和拉取请求！
+如有问题请查阅源码或联系项目维护者。

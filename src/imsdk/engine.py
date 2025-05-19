@@ -9,7 +9,9 @@ import sys
 import threading
 from typing import Dict, Any, List
 
-from imsdk import _LIB_DIR
+
+
+from src.imsdk import LIB_DIR
 from src.imsdk.util import dict_to_ctypes,ctypes_to_dict
 from lib import rcim_client
 from lib.rcim_utils import string_cast, char_pointer_cast
@@ -22,22 +24,18 @@ from lib.rcim_client import (
     RcimEngineSync,
     RcimLogLevel_Debug,
     RcimMessageBox,
-    RcimPlatform_Unknown,
-    RcimPlatform_MacOS,
-    RcimPlatform_Windows,
-    RcimPlatform_Linux,
     RcimSendMessageOption
 )
 
-_USER_ID = ""
-_PLATFORM = RcimPlatform_Unknown
-_RUST_PATH = os.path.dirname(__file__)
+PLATFORM = rcim_client.RcimPlatform_Unknown
 if sys.platform == 'darwin':
-    _PLATFORM = RcimPlatform_MacOS
+    PLATFORM = rcim_client.RcimPlatform_MacOS
 elif sys.platform == 'win32':
-    _PLATFORM = RcimPlatform_Windows
+    PLATFORM = rcim_client.RcimPlatform_Windows
 elif sys.platform == 'linux':
-    _PLATFORM = RcimPlatform_Linux
+    PLATFORM = rcim_client. RcimPlatform_Linux
+
+USER_ID = ""
 
 class IMSDK:
     """IM SDK的Python封装类"""
@@ -47,8 +45,6 @@ class IMSDK:
         # 初始化属性
         self.engine = None
         self.builder = None
-        # 初始化字符串引用列表，防止垃圾回收
-        self.string_references = []
     
     def engine_build(self, app_key: str, navi_host: str, device_id: str) -> Dict[str, Any]:
         """
@@ -68,13 +64,13 @@ class IMSDK:
         self.app_key = app_key
         self.device_id = device_id
         
-        print(f"初始化IM SDK，AppKey: {app_key}, 设备ID: {device_id}, 设备平台：{_PLATFORM}")
+        print(f"初始化IM SDK，AppKey: {app_key}, 设备ID: {device_id}, 设备平台：{PLATFORM}")
         
         try:
             # 准备初始化参数
             engine_builder_param = {
                 'app_key': app_key,
-                "platform": _PLATFORM,
+                "platform": PLATFORM,
                 "device_id": device_id,
                 "package_name": "",
                 "imlib_version": "0.17.1",
@@ -102,7 +98,7 @@ class IMSDK:
             self.builder = builder.contents
             
             # 设置存储路径
-            db_path = os.path.join(_RUST_PATH, "rust_db")
+            db_path = os.path.join(LIB_DIR, "rust_db")
             # 确保目录存在
             os.makedirs(db_path, exist_ok=True)
             
@@ -158,7 +154,7 @@ class IMSDK:
                 "message": str(e)
             }
 
-    def engine_connect(self, token: str, timeout_sec: int = 30) -> Dict[str, Any]:
+    def engine_connect(self, token: str, timeout_sec: int = 10) -> Dict[str, Any]:
         """
         连接融云服务
         
@@ -174,7 +170,7 @@ class IMSDK:
         if not self.engine:
             return {"code": -1, "message": "引擎实例尚未构建，请先调用initialize初始化SDK"}
         
-        print(f"连接融云服务，token: {token[:10]}..., 超时: {timeout_sec}秒")
+        print(f"连接融云服务，token: {token}..., 超时: {timeout_sec}秒")
         
         # 创建回调数据类
         class ConnectData:
@@ -182,11 +178,13 @@ class IMSDK:
                 self.result = {"code": -1, "message": ""}
             
             def callback(self, user_data, code, user_id):
+
+                print(f"rcim_engine_connect 回调执行开始")
                 # 从String类型获取字符串
                 user_id_str = string_cast(user_id)
                 # 将user_id_str赋值给全局变量_USER_ID
-                global _USER_ID
-                _USER_ID = user_id_str
+                global USER_ID
+                USER_ID = user_id_str
                 self.result = {
                     "code": code,
                     "user_id": user_id_str if code == 0 else "",
@@ -210,11 +208,13 @@ class IMSDK:
         
         # 正确地转换token
         token_buffer = char_pointer_cast(token)
-        self.string_references.append(token_buffer)
+        print(f"token_buffer类型: {type(token)}")
+        print(f"token_buffer类型: {type(token_buffer)}")
         
         # 创建超时参数
         timeout_c = ctypes.c_int(timeout_sec)
         
+        print(f"rcim_engine_connect 即将执行")
         # 调用连接函数，注意引擎实例的访问方式
         rcim_client.rcim_engine_connect(
             self.engine[0],  # 使用self.engine[0]获取指针对象
@@ -223,12 +223,12 @@ class IMSDK:
             None,  # user_data参数设为None
             callback_fn
         )
+        print(f"rcim_engine_connect 执行完成")
 
         finished = connect_event.wait(timeout=timeout_sec + 1)
         if not finished:
             print("连接超时，未收到回调")
             return {"code": -2, "message": "连接超时，未收到回调"}
-        self.string_references.remove(token_buffer)
         # 返回回调的结果
         return callback_data.result
     
@@ -248,7 +248,7 @@ class IMSDK:
         if not self.engine:
             return {"code": -1, "message": "引擎实例尚未构建，请先调用initialize初始化SDK"}
 
-        if _USER_ID == "":
+        if USER_ID == "":
             return {"code": -1, "message": "未连接"}
             
         try:
@@ -322,7 +322,7 @@ class IMSDK:
                 'content' : {
                     'content':content
                 },
-                'uid': _USER_ID
+                'uid': USER_ID
             }
 
             # 创建RcimMessageBox结构体实例
@@ -356,12 +356,12 @@ class IMSDK:
                 "message": str(e)
             }
     
-    def get_history_messages(self, user_id: str, count: int = 10, timestamp: int = 0, order: int = 0) -> List[Dict[str, Any]]:
+    def get_history_messages(self, target_id: str, conversation_type: int = RcimConversationType_Private, count: int = 10, timestamp: int = 0, order: int = 0) -> List[Dict[str, Any]]:
         """
         获取远程历史消息
         
         Args:
-            user_id: 用户ID
+            target_id: 目标ID(单聊用户ID或者群ID)
             count: 获取的消息数量，默认为10
             timestamp: 时间戳，默认为0（从最新消息开始）
             order: 排序方式，0为降序，1为升序
@@ -373,7 +373,7 @@ class IMSDK:
         if not self.engine:
             return [{"code": -1, "message": "引擎实例尚未构建，请先调用initialize初始化SDK"}]
 
-        if _USER_ID == "":
+        if USER_ID == "":
             return {"code": -1, "message": "未连接"}
         
         # 根据timestamp判断是否为"从头开始"
@@ -416,8 +416,8 @@ class IMSDK:
         # 调用远程历史消息函数
         rcim_client.rcim_engine_get_remote_history_messages(
             self.engine[0],  # 引擎指针
-            rcim_client.RcimConversationType_Private,  # 会话类型（私聊）
-            char_pointer_cast(user_id),  # 目标用户ID
+            conversation_type,  # 会话类型（私聊）
+            char_pointer_cast(target_id),  # 目标用户ID
             None,  # 频道ID（为空）
             timestamp_c,  # 时间戳
             count_c,  # 消息数量
@@ -446,12 +446,12 @@ class IMSDK:
         Returns:
             包含code和message的字典
         """
-        global _USER_ID
+        global USER_ID
         if not self.engine:
-            _USER_ID = ""
+            USER_ID = ""
             return {"code": -1, "message": "引擎实例尚未构建，请先调用initialize初始化SDK"}
 
-        if _USER_ID == "":
+        if USER_ID == "":
             return {"code": -1, "message": "未连接"}
         
         # 创建回调数据类
@@ -465,8 +465,8 @@ class IMSDK:
                     "message": "断开连接成功" if code == 0 else "断开连接失败"
                 }
                 if code == 0:
-                    global _USER_ID
-                    _USER_ID = ""
+                    global USER_ID
+                    USER_ID = ""
                 
         # 创建事件用于等待回调完成
         disconnect_event = threading.Event()
@@ -478,9 +478,10 @@ class IMSDK:
             return res
             
         # 使用正确的回调函数类型
-        callback_fn = rcim_client.RcimEngineErrorCb(callback_wrapper)        
+        callback_fn = rcim_client.RcimEngineErrorCb(callback_wrapper)  
+        print("断开连接 准备处理") 
         rcim_client.rcim_engine_disconnect(self.engine[0], RcimDisconnectMode_NoPush, None, callback_fn)
-        
+        print("断开连接 处理完成") 
         # 等待回调完成,最多等待3秒
         finished = disconnect_event.wait(timeout=2)
         if not finished:
@@ -498,7 +499,6 @@ class IMSDK:
             self.engine_disconnect()
         self.engine = None
         self.builder = None
-        self.string_references = []
 
 # 创建默认SDK实例，使用默认参数
 default_sdk = IMSDK() 
