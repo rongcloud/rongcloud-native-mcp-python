@@ -6,6 +6,7 @@
 # LONGDOUBLE_SIZE is: 8
 #
 import ctypes
+import sys
 
 
 class AsDictMixin:
@@ -153,7 +154,16 @@ class FunctionFactoryStub:
 # You can either re-run clan2py with -l /path/to/library.so
 # Or manually fix this by comment the ctypes.CDLL loading
 _libraries = {}
-_libraries['FIXME_STUB'] = ctypes.CDLL('./lib/librust_universal_imsdk.dylib') #  ctypes.CDLL('FIXME_STUB')
+
+# 根据平台加载不同后缀的动态库
+if sys.platform == 'darwin':
+    _libraries['FIXME_STUB'] = ctypes.CDLL('./lib/librust_universal_imsdk.dylib')
+elif sys.platform == 'win32':
+    _libraries['FIXME_STUB'] = ctypes.CDLL('./lib/rust_universal_imsdk.dll')
+elif sys.platform == 'linux':
+    _libraries['FIXME_STUB'] = ctypes.CDLL('./lib/librust_universal_imsdk.so')
+else:
+    raise RuntimeError(f'不支持的操作系统平台: {sys.platform}')
 
 
 
