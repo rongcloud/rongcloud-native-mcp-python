@@ -4,14 +4,12 @@ MCP IM服务器 - 真实IM SDK的包装器
 此服务器实现了MCP协议，并直接连接到IM SDK进行消息发送和接收。
 
 """
-from collections import defaultdict, deque
 import json
 import os
 import sys
 from pathlib import Path
 from typing import Dict, Any, List
 import click
-from mcp import ServerSession
 from mcp.server.fastmcp import FastMCP
 
 # 获取项目根目录
@@ -22,43 +20,16 @@ if PROJECT_ROOT not in sys.path:
 from lib.rcim_client import RcimConversationType_Private
 from src.imsdk import default_sdk
 
-# 修复导入路径
-
 # 配置日志
 from src.utils.mcp_utils import ServerLog
 logger = ServerLog.getLogger("rc_im_mcp_server")
 
-####################################################################################
-# Temporary monkeypatch which avoids crashing when a POST message is received
-# before a connection has been initialized, e.g: after a deployment.
-# pylint: disable-next=protected-access
-old__received_request = ServerSession._received_request
-
-
-async def _received_request(self, *args, **kwargs):
-    try:
-        return await old__received_request(self, *args, **kwargs)
-    except RuntimeError:
-        pass
-
-
-# pylint: disable-next=protected-access
-ServerSession._received_request = _received_request
-####################################################################################
-
-# TODO：删除默认值
+# 全局变量
 APP_KEY = ""
 TOKEN = ""
 NAVI_HOST = ""
 
-# 创建MCP应用
-app = FastMCP(
-    "im-server",
-    host="127.0.0.1",  # 设置host
-    port=8000,         # 设置port
-    debug=False,        # 启用调试模式
-)
-client_queues = defaultdict(deque)
+app = FastMCP("rc_im_native_mcp_server")
 
 @app.tool()
 def init_and_connect(
@@ -76,9 +47,6 @@ def init_and_connect(
     logger.info(f"正在初始化并连接IM服务器，AppKey: {APP_KEY}, token长度: {len(TOKEN)}, 超时: {timeout_sec}秒")
     
     # 第1步：初始化IM引擎
-    # 确保参数是字符串类型并进行更详细的记录
-    
-    # 检查是否已初始化，如果已初始化则跳过初始化步骤
     if default_sdk.engine:
         logger.info(f"IM引擎初始化已经存在")
     else:
@@ -90,23 +58,21 @@ def init_and_connect(
         if init_result.get("code", -1) != 0:
             logger.error(f"IM引擎初始化失败: {init_result}")
             return init_result
-            
+                
         logger.info(f"IM引擎初始化成功: {init_result}")
     
     # 第2步：连接IM服务器
     connect_result = default_sdk.engine_connect(TOKEN, timeout_sec)
     if connect_result.get("code", -1) != 0:
         logger.error(f"IM服务器连接失败: {connect_result}")
-        # 返回连接结果，并标记初始化成功但连接失败
         return {
             **connect_result,
             "init_success": True,
             "connect_success": False
         }
-        
+            
     logger.info(f"IM服务器连接成功: {connect_result}")
     
-    # 返回成功结果
     return {
         **connect_result,
         "init_success": True,
@@ -135,7 +101,6 @@ def send_message(
     result = default_sdk.send_message(receiver, content, conversation_type)
     return result
     
-
 @app.tool()
 def get_history_messages(
     user_id: str = "DXIhdtUm7",
@@ -151,14 +116,13 @@ def get_history_messages(
         conversation_type: 单聊（1）还是群聊（3），默认单聊
         order_asc: 是否升序，默认降序
         count: 要获取的消息数量，默认为10条
-
         
     Returns:
         失败：包含code和error的字典
         成功：包含code和message数组的字典
     """
     logger.info(f"正在获取与用户 {user_id} 的 {count} 条历史消息")
-    messages = default_sdk.get_history_messages(user_id, conversation_type, count, order= order_asc)
+    messages = default_sdk.get_history_messages(user_id, conversation_type, count, order=order_asc)
     return messages
 
 @app.tool()
@@ -178,13 +142,11 @@ def disconnect() -> Dict[str, Any]:
         return {"code": -1, "message": str(e)}
 
 def close():
-    """
-    关闭IM引擎
-    """
+    """关闭IM引擎"""
     default_sdk.destroy()
 
 def get_device_id():
-    # 检查本地缓存是否有device_id
+    """获取设备ID"""
     try:
         import json
         import uuid
@@ -217,6 +179,7 @@ def get_device_id():
     return device_id
 
 def get_env(key: str) -> str:
+    """获取环境变量"""
     value = os.getenv(key)
     if not value:
         try:
@@ -229,53 +192,27 @@ def get_env(key: str) -> str:
             logger.error(f"读取package.json中的{key}失败: {e}")
             value = ""
     return value
-    
-@click.group()
-def cli():
-    """融云 IM MCP 服务器命令行工具"""
-    pass
 
-@cli.command()
-@click.option('--host', '-h', default='127.0.0.1', help='服务器监听地址')
-@click.option('--port', '-p', default=8000, help='服务器监听端口')
-@click.option('--app-key', envvar='APP_KEY', help='融云 App Key')
-@click.option('--token', envvar='TOKEN', help='融云 Token')
-@click.option('--navi-host', envvar='NAVI_HOST', help='导航服务器地址')
-@click.option('--debug/--no-debug', default=False, help='是否启用调试模式')
-def start(host: str, port: int, app_key: str, token: str, navi_host: str, debug: bool):
+def main():
     """启动 IM MCP 服务器"""
     global APP_KEY, TOKEN, NAVI_HOST
     
     # 设置环境变量
-    APP_KEY = app_key or get_env("APP_KEY")
-    TOKEN = token or get_env("TOKEN")
-    NAVI_HOST = navi_host or get_env("NAVI_HOST")
+    APP_KEY = get_env("APP_KEY")
+    TOKEN = get_env("TOKEN")
+    NAVI_HOST = get_env("NAVI_HOST")
 
     if not APP_KEY or not TOKEN:
         logger.error("环境变量未设置，请设置APP_KEY和TOKEN")
         sys.exit(1)
 
     # 启动服务器
-    start_server(host, port, debug)
+    app.run("stdio")
 
-@cli.command()
 def version():
     """显示版本信息"""
     from src import __version__
     click.echo(f"RC-IM-Native-MCP-Server 版本 {__version__}")
 
-def start_server(host: str = "127.0.0.1", port: int = 8000, debug: bool = False):
-    """
-    编程方式启动服务器
-    """
-    # 配置服务器
-    app.settings.host = host
-    app.settings.port = port
-    app.settings.debug = debug
-    
-    # 启动服务器
-    logger.info(f"启动服务器: {host}:{port}")
-    app.run(transport="streamable-http")
-
 if __name__ == "__main__":
-    cli()
+    main()

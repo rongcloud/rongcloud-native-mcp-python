@@ -53,17 +53,17 @@ uv pip install -e .
 uv run -m src.server.server version
 
 # 运行服务器
-uv run -m src.server.server start --app-key YOUR_APP_KEY --token YOUR_TOKEN
+uv run -m src.server.server --app-key YOUR_APP_KEY --token YOUR_TOKEN
 ```
 
 ### 使用 uv 运行
 
 ```shell
 # 直接运行服务器
-uv run src/server/server.py start --app-key YOUR_APP_KEY --token YOUR_TOKEN
+uv run src/server/server.py main --app-key YOUR_APP_KEY --token YOUR_TOKEN
 
 # 或者通过安装后的命令运行
-uv run -m rc_im_server start --app-key YOUR_APP_KEY --token YOUR_TOKEN
+uv run -m rc_im_server main --app-key YOUR_APP_KEY --token YOUR_TOKEN
 ```
 
 ## 在 Cursor 中使用
@@ -71,24 +71,18 @@ uv run -m rc_im_server start --app-key YOUR_APP_KEY --token YOUR_TOKEN
 在 Cursor 的 mcp.json 中添加以下配置：
 
 ```json
-"rc_im_native_mcp_server": {
-      "type": "streamable-http",
-      "url": "http://127.0.0.1:8000/mcp",
-      "headers": {
-        "Accept": "application/json, text/event-stream"
-      },
-      "command": "uv",
+"rc_im_native_mcp": {
+      "name": "rc-im-native-mcp-server",
+      "type": "stdio",
+      "command": "uvx",
       "args": [
-        "run",
-        "-m",
-        "src.server.server",
-        "start",
-        "--app-key",
-        "YOUR APPKEY",
-        "--token",
-        "YOUR RONGCLOUD TOKEN",
-      ]
-    }
+        "rc-im-native-mcp-server"
+      ],
+      "env": {
+        "APP_KEY": "key",
+        "TOKEN": "token",
+      }
+    },
 ```
 
 ## 主要功能与工具（tools）说明
