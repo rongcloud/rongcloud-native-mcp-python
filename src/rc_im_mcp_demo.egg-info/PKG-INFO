@@ -1,94 +1,50 @@
-# Rongcloud Native MCP Server（Rust）
+Metadata-Version: 2.4
+Name: rc-im-mcp-demo
+Version: 0.1.0
+Summary: Add your description here
+Requires-Python: >=3.10
+Description-Content-Type: text/markdown
+Requires-Dist: mcp>=1.8.0
+Requires-Dist: uvicorn>=0.27.0
+Requires-Dist: fastapi>=0.110.0
+Requires-Dist: httpx>=0.28.0
+Requires-Dist: diskcache>=5.6.0
+Requires-Dist: requests>=2.31.0
+
+# RC-IM-MCP-DEMO
 
 ## 项目简介
 
 本项目是一个基于 MCP 协议的 Python IM 服务端演示，集成了真实的 IM SDK（通过本地动态库），并通过 MCP 协议对外提供标准化的消息服务能力。项目支持消息收发、历史消息查询、连接管理等功能，适配 MCP Inspector、MCP Client 等工具。
 
-## 安装
+## 目录结构
 
-### 快速安装（推荐）
-
-```shell
-# 克隆项目
-git clone https://github.com/rongcloud/rc-im-mcp-demo.git
-cd rc-im-mcp-demo
-
-# 运行安装脚本
-./scripts/install.sh
 ```
-
-### 手动安装
-
-1. 安装 uv（如果没有）：
-
-```shell
-curl -LsSf https://astral.sh/uv/install.sh | sh
-```
-
-2. 创建并激活虚拟环境：
-
-```shell
-uv venv
-source .venv/bin/activate
-```
-
-3. 安装依赖：
-
-```shell
-uv pip install -r requirements.txt
-```
-
-4. 安装项目：
-
-```shell
-uv pip install -e .
-```
-
-### 验证安装
-
-安装完成后，你可以通过以下命令验证安装：
-
-```shell
-# 查看版本
-uv run -m src.server.server version
-
-# 运行服务器
-uv run -m src.server.server start --app-key YOUR_APP_KEY --token YOUR_TOKEN
-```
-
-### 使用 uv 运行
-
-```shell
-# 直接运行服务器
-uv run src/server/server.py start --app-key YOUR_APP_KEY --token YOUR_TOKEN
-
-# 或者通过安装后的命令运行
-uv run -m rc_im_server start --app-key YOUR_APP_KEY --token YOUR_TOKEN
-```
-
-## 在 Cursor 中使用
-
-在 Cursor 的 mcp.json 中添加以下配置：
-
-```json
-"rc_im_native_mcp_server": {
-      "type": "streamable-http",
-      "url": "http://127.0.0.1:8000/mcp",
-      "headers": {
-        "Accept": "application/json, text/event-stream"
-      },
-      "command": "uv",
-      "args": [
-        "run",
-        "-m",
-        "src.server.server",
-        "start",
-        "--app-key",
-        "YOUR APPKEY",
-        "--token",
-        "YOUR RONGCLOUD TOKEN",
-      ]
-    }
+RC-IM-MCP-DEMO/
+├── README.md
+├── main.py
+├── pyproject.toml
+├── uv.lock
+├── lib/
+│   ├── rcim_client.py
+│   ├── rcim_utils.py
+│   ├── rcim_client.h
+│   └── librust_universal_imsdk.dylib
+├── src/
+│   ├── imsdk/
+│   │   ├── engine.py
+│   │   ├── util.py
+│   │   └── ...
+│   ├── server/
+│   │   ├── mcp_im_server.py
+│   │   └── __init__.py
+│   ├── utils/
+│   │   ├── mcp_utils.py
+│   │   └── __init__.py
+│   └── package.json
+├── .venv/
+├── .vscode/
+└── ...
 ```
 
 ## 主要功能与工具（tools）说明
@@ -145,7 +101,7 @@ uv run -m rc_im_server start --app-key YOUR_APP_KEY --token YOUR_TOKEN
 
 **示例（Linux/macOS）：**
 
-```shell
+```bash
 export APP_KEY=your_app_key
 export TOKEN=your_token
 export NAVI_HOST=your_navi_host
@@ -155,7 +111,7 @@ export NAVI_HOST=your_navi_host
 
 1. 安装依赖：
 
-   ```shell
+   ```bash
    pip install -r requirements.txt
    # 或
    pip install .
@@ -163,7 +119,7 @@ export NAVI_HOST=your_navi_host
 
 2. 启动服务端：
 
-   ```shell
+   ```bash
    python src/server/mcp_im_server.py
    # 或指定端口/协议
    # APP_KEY=xxx TOKEN=xxx NAVI_HOST=xxx python src/server/mcp_im_server.py

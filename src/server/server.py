@@ -10,6 +10,7 @@ import os
 import sys
 from pathlib import Path
 from typing import Dict, Any, List
+import click
 from mcp import ServerSession
 from mcp.server.fastmcp import FastMCP
 
@@ -219,7 +220,7 @@ def get_env(key: str) -> str:
     value = os.getenv(key)
     if not value:
         try:
-            package_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), "package.json")
+            package_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), "config.json")
             if os.path.exists(package_path):
                 with open(package_path, "r", encoding="utf-8") as f:
                     config = json.load(f)
@@ -229,15 +230,52 @@ def get_env(key: str) -> str:
             value = ""
     return value
     
-if __name__ == "__main__":
+@click.group()
+def cli():
+    """融云 IM MCP 服务器命令行工具"""
+    pass
+
+@cli.command()
+@click.option('--host', '-h', default='127.0.0.1', help='服务器监听地址')
+@click.option('--port', '-p', default=8000, help='服务器监听端口')
+@click.option('--app-key', envvar='APP_KEY', help='融云 App Key')
+@click.option('--token', envvar='TOKEN', help='融云 Token')
+@click.option('--navi-host', envvar='NAVI_HOST', help='导航服务器地址')
+@click.option('--debug/--no-debug', default=False, help='是否启用调试模式')
+def start(host: str, port: int, app_key: str, token: str, navi_host: str, debug: bool):
+    """启动 IM MCP 服务器"""
+    global APP_KEY, TOKEN, NAVI_HOST
     
-    APP_KEY = get_env("APP_KEY")
-    TOKEN = get_env("TOKEN")
-    NAVI_HOST = get_env("NAVI_HOST")
+    # 设置环境变量
+    APP_KEY = app_key or get_env("APP_KEY")
+    TOKEN = token or get_env("TOKEN")
+    NAVI_HOST = navi_host or get_env("NAVI_HOST")
 
     if not APP_KEY or not TOKEN:
         logger.error("环境变量未设置，请设置APP_KEY和TOKEN")
-        exit(1)
+        sys.exit(1)
 
-    # 直接使用app.run()启动服务器
+    # 启动服务器
+    start_server(host, port, debug)
+
+@cli.command()
+def version():
+    """显示版本信息"""
+    from src import __version__
+    click.echo(f"RC-IM-Native-MCP-Server 版本 {__version__}")
+
+def start_server(host: str = "127.0.0.1", port: int = 8000, debug: bool = False):
+    """
+    编程方式启动服务器
+    """
+    # 配置服务器
+    app.settings.host = host
+    app.settings.port = port
+    app.settings.debug = debug
+    
+    # 启动服务器
+    logger.info(f"启动服务器: {host}:{port}")
     app.run(transport="streamable-http")
+
+if __name__ == "__main__":
+    cli()
