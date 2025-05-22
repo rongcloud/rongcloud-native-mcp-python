@@ -7,6 +7,7 @@
 #
 import ctypes
 import sys
+import os
 
 
 class AsDictMixin:
@@ -157,11 +158,11 @@ _libraries = {}
 
 # 根据平台加载不同后缀的动态库
 if sys.platform == 'darwin':
-    _libraries['FIXME_STUB'] = ctypes.CDLL('./lib/librust_universal_imsdk.dylib')
+    _libraries['FIXME_STUB'] = ctypes.CDLL(os.path.join(os.path.dirname(__file__), 'librust_universal_imsdk.dylib'))
 elif sys.platform == 'win32':
-    _libraries['FIXME_STUB'] = ctypes.CDLL('./lib/rust_universal_imsdk.dll')
+    _libraries['FIXME_STUB'] = ctypes.CDLL(os.path.join(os.path.dirname(__file__), 'rust_universal_imsdk.dll'))
 elif sys.platform == 'linux':
-    _libraries['FIXME_STUB'] = ctypes.CDLL('./lib/librust_universal_imsdk.so')
+    _libraries['FIXME_STUB'] = ctypes.CDLL(os.path.join(os.path.dirname(__file__), 'librust_universal_imsdk.so'))
 else:
     raise RuntimeError(f'不支持的操作系统平台: {sys.platform}')
 

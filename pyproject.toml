@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "rc-im-native-mcp-server"
-version = "0.1.7"
+version = "0.1.8"
 description = "基于MCP协议的融云IM服务（包装Rust SDK）"
 readme = "README.md"
 requires-python = ">=3.10"

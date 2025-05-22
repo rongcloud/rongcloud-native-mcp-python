@@ -2,9 +2,7 @@ import ctypes
 import json
 import random
 import string
-import time
 from _ctypes import _Pointer
-from lib.rcim_client import RcimConversationType, RcimConversationType_Private
 
 
 def dict_to_ctypes(auto_struct, data):
@@ -170,27 +168,6 @@ class RCUtil:
         # 从字符集中随机选择8个字符
         random_string = ''.join(random.choice(characters) for _ in range(length))
         return random_string
-
-    @staticmethod
-    def generate_message_dict(msg_dict=None, sender_id='', target_id=''):
-        if not msg_dict:
-            msg_dict = {}
-        return {'conv_type': msg_dict.get("conv_type", RcimConversationType_Private),
-                'target_id': msg_dict.get("target_id", target_id if target_id else RCUtil.random_str(5)),
-                'channel_id': msg_dict.get("channel_id", ""),
-                'direction': msg_dict.get("direction", 1),
-                'sender_id': msg_dict.get("sender_id", sender_id if sender_id else 'sender_id'),
-                'sent_status': msg_dict.get("sent_status", 20),
-                'received_time': msg_dict.get("received_time", int(time.time() * 1000)),
-                'sent_time': msg_dict.get("sent_time", int(time.time() * 1000)),
-                'object_name': msg_dict.get("object_name", 'RC:TxtMsg'),
-                'content': msg_dict.get("content", {"content": f"content"}),
-                'uid': msg_dict.get("uid", 'uid'),
-                'extra': msg_dict.get("extra", ''),
-                'push_config': msg_dict.get("push_config", None),
-                'is_ext_supported': msg_dict.get("is_ext_supported", False),
-                'ext_content': msg_dict.get("ext_content", None)}
-
 
 class MessageTool:
 

@@ -17,11 +17,11 @@ PROJECT_ROOT = str(Path(__file__).parent.parent.parent)
 if PROJECT_ROOT not in sys.path:
     sys.path.insert(0, PROJECT_ROOT)
 
-from lib.rcim_client import RcimConversationType_Private
-from src.imsdk import default_sdk
+from native_mcp.lib.rcim_client import RcimConversationType_Private
+from native_mcp.imsdk import default_sdk
 
 # 配置日志
-from src.utils.mcp_utils import ServerLog
+from native_mcp.utils.mcp_utils import ServerLog
 logger = ServerLog.getLogger("rc_im_mcp_server")
 
 # 全局变量
@@ -211,7 +211,7 @@ def main():
 
 def version():
     """显示版本信息"""
-    from src import __version__
+    from native_mcp import __version__
     click.echo(f"RC-IM-Native-MCP-Server 版本 {__version__}")
 
 if __name__ == "__main__":

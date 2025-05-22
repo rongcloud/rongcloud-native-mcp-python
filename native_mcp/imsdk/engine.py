@@ -9,13 +9,11 @@ import sys
 import threading
 from typing import Dict, Any, List
 
-
-
-from src.imsdk import LIB_DIR
-from src.imsdk.util import dict_to_ctypes,ctypes_to_dict
-from lib import rcim_client
-from lib.rcim_utils import string_cast, char_pointer_cast
-from lib.rcim_client import (
+from native_mcp.imsdk import LIB_DIR
+from native_mcp.imsdk.util import dict_to_ctypes,ctypes_to_dict
+from native_mcp.lib import rcim_client
+from native_mcp.lib.rcim_utils import string_cast, char_pointer_cast
+from native_mcp.lib.rcim_client import (
     RcimConversationType_Group,
     RcimConversationType_Private,
     RcimDisconnectMode_NoPush,
@@ -33,7 +31,7 @@ if sys.platform == 'darwin':
 elif sys.platform == 'win32':
     PLATFORM = rcim_client.RcimPlatform_Windows
 elif sys.platform == 'linux':
-    PLATFORM = rcim_client. RcimPlatform_Linux
+    PLATFORM = rcim_client.RcimPlatform_Linux
 
 USER_ID = ""
 
