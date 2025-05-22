@@ -9,19 +9,19 @@
     
     # 项目文件目录和架构
     RC-IM-MCP-DEMO/
-    ├── lib/                ;本地dylib动态库及相关代码
-    |   |_ librust_universal_imsdk.dylib
-    |   |_ librust_universal_imsdk.so
-    |   |_ librust_universal_imsdk.dll
-    │   ├── rcim_client.py  ;IM SDK客户端代码
-    │   └── rcim_listener.py ;IM SDK监听器代码
-    └── src/                      ;业务代码
+    └── native_mcp/                      ;业务代码
         ├── server/             ;MCP 协议 Server代码（依赖 src/imsdk/engine 和 MCP 框架）
         │   └── server.py ;MCP IM Server实现
-        └── imsdk/                ;IM 基础能力封装库，封装了 dylib（本身是rust语言编写）的逻辑
-            ├── engine.py         ;IM 基础能力代码
-            ├── listener.py       ;IM SDK监听器代码
-            └── utils.py        ;IM SDK工具函数代码
+        ├── imsdk/                ;IM 基础能力封装库，封装了 dylib（本身是rust语言编写）的逻辑
+        │   ├── engine.py         ;IM 基础能力代码
+        │   ├── listener.py       ;IM SDK监听器代码
+        │   └── utils.py        ;IM SDK工具函数代码
+        └── lib/                ;本地dylib动态库及相关代码
+            |_ librust_universal_imsdk.dylib
+            |_ librust_universal_imsdk.so
+            |_ librust_universal_imsdk.dll
+            ├── rcim_client.py  ;IM SDK客户端代码
+            └── rcim_listener.py ;IM SDK监听器代码
     
     # Goal
     你的目标是以用户容易理解的方式帮助他们完成Python项目的设计和开发工作。你应该主动完成所有工作，而不是等待用户多次推动你。

@@ -36,5 +36,6 @@ Thumbs.db
 src/imsdk/rust_db/RongCloud/*
 lib/rust_db/*
 *.lock
+*.egg-info/*
 
 config.json
