@@ -2,99 +2,54 @@
 
 基于 MCP 协议的融云 IM 服务（包装 Rust SDK）
 
-## 安装
-
-### 方法一：使用 pip 安装（推荐）
-
-```bash
-# 使用 pip 安装
-pip install rc-im-native-mcp-server
-
-# 或使用 uv 安装
-uv pip install rc-im-native-mcp-server
-```
-
-### 方法二：从源码安装
-
-1. 克隆项目：
-
-```bash
-git clone https://github.com/rongcloud/rc-im-mcp-demo.git
-cd rc-im-mcp-demo
-```
-
-2. 安装 uv（如果没有）：
-
-```bash
-curl -LsSf https://astral.sh/uv/install.sh | sh
-```
-
-3. 创建并激活虚拟环境：
-
-```bash
-uv venv
-source .venv/bin/activate
-```
-
-4. 安装项目：
-
-```bash
-uv pip install -e .
-```
-
 ## 使用方法
 
-### 1. 环境变量配置
-
-在使用前，需要设置以下环境变量：
+### 前提--安装 UV 包管理工具
 
 ```bash
-# 设置融云 AppKey
-export APP_KEY="your_app_key"
-
-# 设置融云 Token
-export TOKEN="your_token"
-
-# 设置融云导航服务器地址（可选）
-export NAVI_HOST="your_navi_host"
+ pip install uv 
 ```
 
-### 2. 启动服务器
+UV 是一个用 Rust 编写的 Python 包安装和依赖管理工具，比传统工具（如 pip）有着更快、更高效的体验。它主要关注两个核心目标：
 
-```bash
-# 方法一：直接运行（推荐）
-rc-im-native-mcp-server
+速度: UV 在包安装、依赖解析和虚拟环境创建等方面进行了优化，速度有显著的提升。
+效率: UV 可以减少资源消耗，尤其是在大型项目中。
 
-# 方法二：使用 Python 模块运行
-python -m src.server.server
+后续我们会用到 UVX 命令，它的作用是"如果本地没有，先下载。再运行"，而且每次都是在单独的虚拟环境中，很适合大模型/Agent相关场景
 
-# 方法三：使用 uv 运行
-uv run -m src.server.server
+### 在 Cursor 中使用（Cline / Claude 类似）
+
+配置路径：Cursor -> 首选项 -> Cursor Settings -> MCP -> Add new global MCP server
+配置内容：
+
+```json
+{
+  "mcpServers": {
+    "rc_im_native_mcp": {
+      "name": "rc-im-native-mcp-server",
+      "type": "stdio",
+      "command": "uvx",
+      "args": [
+        "rc-im-native-mcp-server"
+      ],
+      "env": {
+          "APP_KEY": "Your Rongcloud App Key",
+          "TOKEN": "Your Rongcloud SDK Token (from Server API)",
+          "NAVI_HOST": "Your Rongcloud SDK Nav URL"
+      }
+    }
+  }
+}
+
 ```
 
-### 3. macOS 用户特别说明
+### 在 Cherry studio 中使用
 
-由于 macOS 的安全机制，首次运行时可能会遇到安全警告。请按照以下步骤解决：
+先安装 UV 和 Bun（都需要安装），安装后重启 Cherry Studio。然后按照下图配置：
+![Cherry Studio 界面示例](readme_img/cherry-studio-0.png)
+![Cherry Studio 界面示例](readme_img/cherry-studio.png)
 
-1. 当看到安全警告时，点击"取消"按钮
-2. 打开系统偏好设置（System Preferences）
-3. 点击"安全性与隐私"（Security & Privacy）
-4. 在"通用"（General）标签页中，你会看到一条关于 `librust_universal_imsdk.dylib` 的警告
-5. 点击"仍要打开"（Open Anyway）按钮
-6. 在弹出的确认对话框中点击"打开"（Open）
-7. 现在你可以重新运行服务器了
-
-#### 为什么会出现这个警告？
-
-这个警告是 macOS 的安全机制（Gatekeeper）触发的，用于保护用户免受潜在的安全威胁。我们的动态库（`librust_universal_imsdk.dylib`）是安全的，但由于没有 Apple 开发者证书签名，所以会触发这个警告。
-
-#### 安全说明
-
-- 我们的动态库是开源的，代码经过安全审计
-- 动态库仅用于本地 IM 服务，不会收集或上传任何用户数据
-- 所有通信都使用加密通道，确保数据安全
-
-## 主要功能与工具（tools）说明
+## 主要功能与工具（tools）说明（持续更新）
 
 服务端通过 MCP 协议暴露以下工具：
 
@@ -161,25 +116,17 @@ uv run -m src.server.server
 
 ## 常见问题
 
-### Q: 为什么需要设置环境变量？
+### Q: 为什么配置了 Cursor 但是服务器列表中一直是黄色小圆点？
 
-A: 环境变量用于配置融云 IM 服务的基本参数，包括 AppKey 和 Token，这些是连接融云服务的必要信息。
+A: 服务器列表中显示黄色小圆点，尝试先安装 UV 命令，重启 Cursor 后重新开启服务开关。
 
-### Q: 如何获取 AppKey 和 Token？
+### Q: 为什么 Cherry Studio 一直报错？
 
-A: 请登录融云开发者控制台，在应用管理页面可以找到 AppKey。Token 需要根据你的用户系统生成，具体方法请参考融云文档。
+A: 确保 UV 和 Bun 安装成功，重启 Cherry Studio 后重新开启服务开关。
 
-### Q: 服务器启动后如何验证是否正常运行？
+### Q: 为什么调用工具后返回错误？
 
-A: 服务器启动后，你可以使用融云提供的测试工具或 SDK 进行连接测试。如果看到连接成功的日志，说明服务器运行正常。
-
-### Q: 如何查看服务器版本？
-
-A: 运行以下命令：
-
-```bash
-rc-im-native-mcp-server version
-```
+A: 确保环境变量（APP_KEY、TOKEN、NAVI_HOST）正确设置，重启服务后重新调用工具。
 
 ## 典型用例
 
@@ -199,21 +146,10 @@ rc-im-native-mcp-server version
    - 调用 `disconnect` 工具
    - 确认断开成功
 
-## 注意事项
-
-- 启动服务前请确保本地 IM SDK 动态库和依赖已正确配置
-- 环境变量必须设置正确，否则服务无法正常启动
-- 工具接口参数和返回值请严格按照说明传递和解析
-- 建议使用 MCP Inspector 或 MCP Client 进行测试
-
 ## 技术支持
 
 如果遇到问题，请：
 
 1. 检查环境变量是否正确设置
 2. 查看日志输出，了解具体错误信息
-3. 访问 [融云开发者社区](https://developer.rongcloud.cn) 获取帮助
-
-## 许可证
-
-本项目采用 MIT 许可证。详见 [LICENSE](LICENSE) 文件。
+3. 在开源项目中提issue
