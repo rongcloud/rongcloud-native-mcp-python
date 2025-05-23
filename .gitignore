@@ -19,9 +19,10 @@ ENV/
 
 # IDE
 .idea/
-.vscode/
+.vscode/*
 *.swp
 *.swo
+.cursorrules
 
 # OS
 .DS_Store
