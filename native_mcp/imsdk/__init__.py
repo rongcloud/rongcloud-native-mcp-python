@@ -10,7 +10,8 @@ import sys
 
 # 定义lib目录
 ROOT_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), "../.."))
-LIB_DIR = os.path.join(ROOT_DIR, "lib")
+NATIVE_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
+LIB_DIR = os.path.join(NATIVE_DIR, "lib")
 
     
 from .engine import IMSDK, default_sdk

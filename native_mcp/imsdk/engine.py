@@ -35,6 +35,9 @@ elif sys.platform == 'linux':
 
 USER_ID = ""
 
+# 配置日志
+from native_mcp.utils.mcp_utils import logger
+
 class IMSDK:
     """IM SDK的Python封装类"""
     
@@ -62,7 +65,7 @@ class IMSDK:
         self.app_key = app_key
         self.device_id = device_id
         
-        print(f"初始化IM SDK，AppKey: {app_key}, 设备ID: {device_id}, 设备平台：{PLATFORM}")
+        logger.info(f"初始化IM SDK，AppKey: {app_key}, 设备ID: {device_id}, 设备平台：{PLATFORM}")
         
         try:
             # 准备初始化参数
@@ -89,7 +92,7 @@ class IMSDK:
             # 调用创建函数
             ret = rcim_client.rcim_create_engine_builder(param,builder)
             if ret != 0:
-                print(f"rcim_create_engine_builder failed, error code: {ret}")
+                logger.info(f"rcim_create_engine_builder failed, error code: {ret}")
                 return {"code": -1, "message": f"rcim_create_engine_builder failed, error code: {ret}"}
             
             # 保存builder引用
@@ -102,7 +105,7 @@ class IMSDK:
             
             ret = rcim_client.rcim_engine_builder_set_store_path(self.builder, char_pointer_cast(db_path))
             if ret != 0:
-                print(f"rcim_engine_builder_set_store_path failed, error code: {ret}")
+                logger.info(f"rcim_engine_builder_set_store_path failed, error code: {ret}")
 
             # 设置navi服务器
             navi_list = [navi_host]
@@ -118,18 +121,18 @@ class IMSDK:
             
             ret = rcim_client.rcim_engine_builder_set_navi_server(self.builder, double_ptr,1)
             if ret != 0:
-                print(f"rcim_engine_builder_set_navi_server failed, error code: {ret}")
+                logger.info(f"rcim_engine_builder_set_navi_server failed, error code: {ret}")
 
 
             # 创建引擎
             engine_ptr = ctypes.pointer(ctypes.pointer(RcimEngineSync()))
             
-            print(f"rcim_engine_builder_build 即将执行")
+            logger.info(f"rcim_engine_builder_build 即将执行")
 
             # 构建引擎
             ret = rcim_client.rcim_engine_builder_build(self.builder, engine_ptr)
             if ret != 0:
-                print(f"rcim_engine_builder_build failed, error code: {ret}")
+                logger.info(f"rcim_engine_builder_build failed, error code: {ret}")
                 return {"code": -1, "message": f"rcim_engine_builder_build failed, error code: {ret}"}
             
             # 保存引擎引用
@@ -145,8 +148,8 @@ class IMSDK:
             }
         except Exception as e:
             import traceback
-            print(f"初始化IM SDK失败: {e}")
-            print(f"异常堆栈: {traceback.format_exc()}")
+            logger.info(f"初始化IM SDK失败: {e}")
+            logger.info(f"异常堆栈: {traceback.format_exc()}")
             return {
                 "code": -1,
                 "message": str(e)
@@ -168,7 +171,7 @@ class IMSDK:
         if not self.engine:
             return {"code": -1, "message": "引擎实例尚未构建，请先调用initialize初始化SDK"}
         
-        print(f"连接融云服务，token: {token}..., 超时: {timeout_sec}秒")
+        logger.info(f"连接融云服务，token: {token}..., 超时: {timeout_sec}秒")
         
         # 创建回调数据类
         class ConnectData:
@@ -177,7 +180,7 @@ class IMSDK:
             
             def callback(self, user_data, code, user_id):
 
-                print(f"rcim_engine_connect 回调执行开始")
+                logger.info(f"rcim_engine_connect 回调执行开始")
                 # 从String类型获取字符串
                 user_id_str = string_cast(user_id)
                 # 将user_id_str赋值给全局变量_USER_ID
@@ -188,7 +191,7 @@ class IMSDK:
                     "user_id": user_id_str if code == 0 else "",
                     "message": "连接成功" if code == 0 else "连接失败"  
                 }
-                print(f"连接回调: {'成功' if code == 0 else '失败'}, 用户ID: {user_id_str}, 错误码: {code}")
+                logger.info(f"连接回调: {'成功' if code == 0 else '失败'}, 用户ID: {user_id_str}, 错误码: {code}")
         
         # 创建回调数据
         callback_data = ConnectData()
@@ -206,13 +209,13 @@ class IMSDK:
         
         # 正确地转换token
         token_buffer = char_pointer_cast(token)
-        print(f"token_buffer类型: {type(token)}")
-        print(f"token_buffer类型: {type(token_buffer)}")
+        logger.info(f"token_buffer类型: {type(token)}")
+        logger.info(f"token_buffer类型: {type(token_buffer)}")
         
         # 创建超时参数
         timeout_c = ctypes.c_int(timeout_sec)
         
-        print(f"rcim_engine_connect 即将执行")
+        logger.info(f"rcim_engine_connect 即将执行")
         # 调用连接函数，注意引擎实例的访问方式
         rcim_client.rcim_engine_connect(
             self.engine[0],  # 使用self.engine[0]获取指针对象
@@ -221,11 +224,11 @@ class IMSDK:
             None,  # user_data参数设为None
             callback_fn
         )
-        print(f"rcim_engine_connect 执行完成")
+        logger.info(f"rcim_engine_connect 执行完成")
 
         finished = connect_event.wait(timeout=timeout_sec + 1)
         if not finished:
-            print("连接超时，未收到回调")
+            logger.info("连接超时，未收到回调")
             return {"code": -2, "message": "连接超时，未收到回调"}
         # 返回回调的结果
         return callback_data.result
@@ -283,9 +286,9 @@ class IMSDK:
                             "message_id": message_id_str,
                             "message": "发送消息成功" if code == 0 else "发送消息失败"
                         }
-                        print(f"发送消息回调: {'成功' if code == 0 else '失败'}, 消息ID: {message_id_str}, 错误码: {code}")
+                        logger.info(f"发送消息回调: {'成功' if code == 0 else '失败'}, 消息ID: {message_id_str}, 错误码: {code}")
                     except Exception as e:
-                        print(f"回调函数内部错误: {e}")
+                        logger.info(f"回调函数内部错误: {e}")
                         self.result = {"code": -1, "message": str(e)}
             
             # 创建回调数据
@@ -341,14 +344,14 @@ class IMSDK:
             # 用事件等待回调完成
             finished = event.wait(timeout=2)
             if not finished:
-                print("发送消息超时，未收到回调")
+                logger.info("发送消息超时，未收到回调")
                 return {"code": -2, "message": "发送消息超时，未收到回调"}
             # 返回回调的结果
             return callback_data.result
         except Exception as e:
             import traceback
-            print(f"发送消息失败: {e}")
-            print(f"异常堆栈: {traceback.format_exc()}")
+            logger.info(f"发送消息失败: {e}")
+            logger.info(f"异常堆栈: {traceback.format_exc()}")
             return {
                 "code": -1,
                 "message": str(e)
@@ -361,7 +364,7 @@ class IMSDK:
         Args:
             target_id: 目标ID(单聊用户ID或者群ID)
             count: 获取的消息数量，默认为10
-            timestamp: 时间戳，待查询消息的发送时间，若为 0 则代表最近一条消息的发送时间，取值范围 [0, INT64_MAX]
+            timestamp: 时间戳，默认为0（从最新消息开始）
             order: 排序方式，0为降序，1为升序
             
         Returns:
@@ -373,7 +376,10 @@ class IMSDK:
 
         if USER_ID == "":
             return {"code": -1, "message": "未连接"}
-                
+        
+        # 根据timestamp判断是否为"从头开始"
+        is_forward = True if timestamp == 0 else False
+        
         # 创建同步事件
         done_event = threading.Event()
 
@@ -383,7 +389,7 @@ class IMSDK:
                 self.code = -1
 
             def callback(self, user_data, code, messages, messages_len):
-                print(f"获取远程消息回调: code={code}, message_count={messages_len}")
+                logger.info(f"获取远程消息回调: code={code}, message_count={messages_len}")
                 self.code = code
                 if code == 0 and messages and messages_len > 0:
                     for i in range(messages_len):
@@ -406,6 +412,7 @@ class IMSDK:
         count_c = ctypes.c_int(count)
         timestamp_c = ctypes.c_int64(timestamp)
         order_enum = rcim_client.RcimOrder_Descending if order == 0 else rcim_client.RcimOrder_Ascending
+        is_forward_c = ctypes.c_bool(is_forward)
         
         # 调用远程历史消息函数
         rcim_client.rcim_engine_get_remote_history_messages(
@@ -416,17 +423,17 @@ class IMSDK:
             timestamp_c,  # 时间戳
             count_c,  # 消息数量
             order_enum,  # 排序方式
-            True,  # 是否正向获取
+            is_forward_c,  # 是否正向获取
             None,  # user_data
             callback_fn  # 回调函数
         )
         
         # 等待回调，最多5秒
         finished = done_event.wait(timeout=2)
-        print(f"获取历史消息回调结束: {finished}")
+        logger.info(f"获取历史消息回调结束: {finished}")
 
         if not finished:
-            print("获取历史消息超时，未收到回调")
+            logger.info("获取历史消息超时，未收到回调")
             return [{"code": -2, "message": "获取历史消息超时，未收到回调"}]
 
         if callback_data.code != 0:
@@ -473,13 +480,13 @@ class IMSDK:
             
         # 使用正确的回调函数类型
         callback_fn = rcim_client.RcimEngineErrorCb(callback_wrapper)  
-        print("断开连接 准备处理") 
+        logger.info("断开连接 准备处理") 
         rcim_client.rcim_engine_disconnect(self.engine[0], RcimDisconnectMode_NoPush, None, callback_fn)
-        print("断开连接 处理完成") 
+        logger.info("断开连接 处理完成") 
         # 等待回调完成,最多等待3秒
         finished = disconnect_event.wait(timeout=2)
         if not finished:
-            print("断开连接超时，未收到回调")
+            logger.info("断开连接超时，未收到回调")
             return {"code": -2, "message": "断开连接超时，未收到回调"}
         return callback_data.result
     

@@ -21,8 +21,7 @@ from native_mcp.lib.rcim_client import RcimConversationType_Private
 from native_mcp.imsdk import default_sdk
 
 # 配置日志
-from native_mcp.utils.mcp_utils import ServerLog
-logger = ServerLog.getLogger("rc_im_mcp_server")
+from native_mcp.utils.mcp_utils import logger
 
 # 全局变量
 APP_KEY = ""
