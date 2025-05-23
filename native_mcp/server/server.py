@@ -102,7 +102,7 @@ def send_message(
     
 @app.tool()
 def get_history_messages(
-    user_id: str,
+    user_id: str = "",
     conversation_type: int = RcimConversationType_Private,
     order_asc: bool = False,
     count: int = 10,

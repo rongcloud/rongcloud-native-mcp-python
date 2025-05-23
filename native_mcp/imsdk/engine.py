@@ -7,6 +7,7 @@ import os
 import ctypes
 import sys
 import threading
+import time
 from typing import Dict, Any, List
 
 from native_mcp.imsdk import LIB_DIR
@@ -377,8 +378,9 @@ class IMSDK:
         if USER_ID == "":
             return {"code": -1, "message": "未连接"}
         
-        # 根据timestamp判断是否为"从头开始"
-        is_forward = True if timestamp == 0 else False
+        if timestamp == 0:
+            # 获取当前时间戳(毫秒)
+            timestamp = int(time.time() * 1000)
         
         # 创建同步事件
         done_event = threading.Event()
@@ -412,7 +414,7 @@ class IMSDK:
         count_c = ctypes.c_int(count)
         timestamp_c = ctypes.c_int64(timestamp)
         order_enum = rcim_client.RcimOrder_Descending if order == 0 else rcim_client.RcimOrder_Ascending
-        is_forward_c = ctypes.c_bool(is_forward)
+        logger.info(f"order: {order_enum}")
         
         # 调用远程历史消息函数
         rcim_client.rcim_engine_get_remote_history_messages(
@@ -423,14 +425,13 @@ class IMSDK:
             timestamp_c,  # 时间戳
             count_c,  # 消息数量
             order_enum,  # 排序方式
-            is_forward_c,  # 是否正向获取
+            True,  # 是否包含本地消息
             None,  # user_data
             callback_fn  # 回调函数
         )
         
         # 等待回调，最多5秒
         finished = done_event.wait(timeout=2)
-        logger.info(f"获取历史消息回调结束: {finished}")
 
         if not finished:
             logger.info("获取历史消息超时，未收到回调")
