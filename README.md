@@ -93,27 +93,6 @@ UV 是一个用 Rust 编写的 Python 包安装和依赖管理工具，比传统
   - `code` (int)：0 表示成功，非0为失败
   - `message` (str)：结果说明
 
-## 在 Cursor 中使用
-
-在 Cursor 的 mcp.json 中添加以下配置：
-
-```json
-{
-  "rc_im_native_mcp": {
-    "name": "rc-im-native-mcp-server",
-    "type": "stdio",
-    "command": "uvx",
-    "args": [
-      "rc-im-native-mcp-server"
-    ],
-    "env": {
-      "APP_KEY": "your_app_key",
-      "TOKEN": "your_token"
-    }
-  }
-}
-```
-
 ## 常见问题
 
 ### Q: 为什么配置了 Cursor 但是服务器列表中一直是黄色小圆点？
@@ -127,24 +106,6 @@ A: 确保 UV 和 Bun 安装成功，重启 Cherry Studio 后重新开启服务�
 ### Q: 为什么调用工具后返回错误？
 
 A: 确保环境变量（APP_KEY、TOKEN、NAVI_HOST）正确设置，重启服务后重新调用工具。
-
-## 典型用例
-
-1. **初始化并连接**：
-   - 调用 `init_and_connect` 工具
-   - 等待连接成功响应
-
-2. **发送消息**：
-   - 调用 `send_message` 工具
-   - 指定接收者和消息内容
-
-3. **获取历史消息**：
-   - 调用 `get_history_messages` 工具
-   - 指定用户ID和消息数量
-
-4. **断开连接**：
-   - 调用 `disconnect` 工具
-   - 确认断开成功
 
 ## 技术支持
 
