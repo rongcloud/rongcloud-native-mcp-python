@@ -1,7 +1,7 @@
 """
-MCP IM服务器 - 真实IM SDK的包装器
+MCP IM Server - Engine Wrapper
 
-此服务器实现了MCP协议，并直接连接到IM SDK进行消息发送和接收。
+This server implements the MCP protocol and directly connects to the IM SDK for message sending and receiving.
 
 """
 import json
@@ -12,18 +12,18 @@ from typing import Dict, Any, List
 import click
 from mcp.server.fastmcp import FastMCP
 
-# 获取项目根目录
+# Get project root directory
 PROJECT_ROOT = str(Path(__file__).parent.parent.parent)
 if PROJECT_ROOT not in sys.path:
     sys.path.insert(0, PROJECT_ROOT)
 
-from native_mcp.lib.rcim_client import RcimConversationType_Private
+from native_mcp.lib.rcim_client import RcimConversationType_Group, RcimConversationType_Private
 from native_mcp.imsdk import default_sdk
 
-# 配置日志
+# Configure logging
 from native_mcp.utils.mcp_utils import logger
 
-# 全局变量
+# Global variables
 APP_KEY = ""
 TOKEN = ""
 NAVI_HOST = ""
@@ -35,42 +35,42 @@ def init_and_connect(
     timeout_sec: int = 30
 ) -> Dict[str, Any]:
     """
-    初始化IM引擎并连接到IM服务器
+    Initialize IM engine and connect to IM server
     
     Args:
-        timeout_sec: 连接超时时间，单位为秒
+        timeout_sec: Connection timeout in seconds
 
     Returns:
-        包含code、message、init_success(bool) 和 connect_success(bool)的字典
+        Dictionary containing code, message, init_success(bool) and connect_success(bool)
     """
-    logger.info(f"正在初始化并连接IM服务器，AppKey: {APP_KEY}, token长度: {len(TOKEN)}, 超时: {timeout_sec}秒")
+    logger.info(f"Initializing and connecting to IM server, AppKey: {APP_KEY}, token length: {len(TOKEN)}, timeout: {timeout_sec}s")
     
-    # 第1步：初始化IM引擎
+    # Step 1: Initialize IM engine
     if default_sdk.engine:
-        logger.info(f"IM引擎初始化已经存在")
+        logger.info(f"IM engine already exists")
     else:
         app_key_str = str(APP_KEY) if APP_KEY is not None else ""
         device_id_str = str(get_device_id())
                     
-        # 使用IMSDK的initialize方法初始化引擎
+        # Initialize engine using IMSDK's initialize method
         init_result = default_sdk.engine_build(app_key_str, NAVI_HOST, device_id_str)
         if init_result.get("code", -1) != 0:
-            logger.error(f"IM引擎初始化失败: {init_result}")
+            logger.error(f"IM engine initialization failed: {init_result}")
             return init_result
                 
-        logger.info(f"IM引擎初始化成功: {init_result}")
+        logger.info(f"IM engine initialization successful: {init_result}")
     
-    # 第2步：连接IM服务器
+    # Step 2: Connect to IM server
     connect_result = default_sdk.engine_connect(TOKEN, timeout_sec)
     if connect_result.get("code", -1) != 0:
-        logger.error(f"IM服务器连接失败: {connect_result}")
+        logger.error(f"IM server connection failed: {connect_result}")
         return {
             **connect_result,
             "init_success": True,
             "connect_success": False
         }
             
-    logger.info(f"IM服务器连接成功: {connect_result}")
+    logger.info(f"IM server connection successful: {connect_result}")
     
     return {
         **connect_result,
@@ -79,82 +79,101 @@ def init_and_connect(
     }
     
 @app.tool()
-def send_message(
-    receiver: str = "",
+def send_private_message(
+    user_id: str = "",
     content: str = "",
-    conversation_type: int = 1
 ) -> Dict[str, Any]:
     """
-    发送IM消息给指定用户(单聊或群聊)
+    Send IM message to specified user
     
     Args:
-        receiver: 消息接收者的ID
-        content: 要发送的消息内容
-        conversation_type: 会话类型，1=单聊，2=群聊，默认为单聊(1)
+        user_id: Message recipient's ID. User_ID or Target_ID
+        content: Message content to send
         
     Returns:
-        失败：包含code和error的字典
-        成功：包含code、message_id和message的字典
+        Failure: Dictionary containing code and error
+        Success: Dictionary containing code, message_id and message
     """
-    logger.info(f"正在发送消息给 {receiver}: {content}")
-    result = default_sdk.send_message(receiver, content, conversation_type)
+    logger.info(f"Sending private message to {user_id}: {content}")
+    result = default_sdk.send_message(user_id, content, RcimConversationType_Private)
     return result
     
 @app.tool()
+def send_group_message(
+    group_id: str = "",
+    content: str = "",
+) -> Dict[str, Any]:
+    """
+    Send IM message to specified group
+
+    Args:
+        group_id: Group ID or Target_ID
+        content: Message content to send
+        
+    Returns:
+        Failure: Dictionary containing code and error
+        Success: Dictionary containing code, message_id and message
+    """
+    logger.info(f"Sending group message to {group_id}: {content}")
+    result = default_sdk.send_message(group_id, content, RcimConversationType_Group)
+    return result
+
+
+@app.tool()
 def get_history_messages(
-    user_id: str = "",
+    target_id: str = "",
     conversation_type: int = RcimConversationType_Private,
     order_asc: bool = False,
     count: int = 10,
 ) -> List[Dict[str, Any]]:
     """
-    获取与指定用户的历史消息
+    Get historical messages with specified user(User_ID or Target_ID) or group(Group_ID or Target_ID)
     
     Args:
-        user_id: 用户ID，获取与该用户的历史消息
-        conversation_type: 单聊（1）还是群聊（3），默认单聊
-        order_asc: 是否升序，默认降序
-        count: 要获取的消息数量，默认为10条
+        target_id: Target ID to get historical messages with
+        conversation_type: Private chat (1) or group chat (3), default is private chat
+        order_asc: Whether to sort in ascending order, default is descending
+        count: Number of messages to retrieve, default is 10
         
     Returns:
-        失败：包含code和error的字典
-        成功：包含code和message数组的字典
+        Failure: Dictionary containing code and error
+        Success: Dictionary containing code and message array
     """
-    logger.info(f"正在获取与用户 {user_id} 的 {count} 条历史消息")
-    messages = default_sdk.get_history_messages(user_id, conversation_type, count, order=order_asc)
+    logger.info(f"Getting {count} historical messages with target_id: {target_id}, conver_type: {conversation_type}, order_asc: {order_asc}")
+    messages = default_sdk.get_history_messages(target_id, conversation_type, count, order=order_asc)
     return messages
 
 @app.tool()
 def disconnect() -> Dict[str, Any]:
     """
-    断开与IM服务器的连接
+    Disconnect from IM server
     
     Returns:
-        包含code和message的字典
+        Dictionary containing code and message
     """
     try:
-        logger.info("正在断开与IM服务器的连接")
+        logger.info("Disconnecting from IM server")
         result = default_sdk.engine_disconnect()
         return result
     except Exception as e:
-        logger.error(f"断开连接时发生错误: {e}")
+        logger.error(f"Error occurred while disconnecting: {e}")
         return {"code": -1, "message": str(e)}
 
 def close():
-    """关闭IM引擎"""
+    """Close IM engine"""
     default_sdk.destroy()
 
 def get_device_id():
-    """获取设备ID"""
+    """Get device ID"""
     try:
         import json
         import uuid
         import os
 
-        # 获取package.json文件路径
+        # Get package.json file path
         package_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), "package.json")
         
-        # 读取package.json
+        # Read package.json
         if os.path.exists(package_path):
             with open(package_path, "r", encoding="utf-8") as f:
                 config = json.load(f)
@@ -163,22 +182,22 @@ def get_device_id():
             config = {}
             device_id = None
             
-        # 如果没有device_id,生成一个新的
+        # If no device_id, generate a new one
         if not device_id:
             device_id = str(uuid.uuid4())
             config["device_id"] = device_id
-            # 保存到package.json
+            # Save to package.json
             with open(package_path, "w", encoding="utf-8") as f:
                 json.dump(config, f, indent=4)
                 
-        logger.info(f"使用device_id: {device_id}")
+        logger.info(f"Using device_id: {device_id}")
     except Exception as e:
-        logger.error(f"处理device_id时发生错误: {e}")
-        device_id = "mcp_demo"  # 使用默认值
+        logger.error(f"Error occurred while processing device_id: {e}")
+        device_id = "mcp_demo"  # Use default value
     return device_id
 
 def get_env(key: str) -> str:
-    """获取环境变量"""
+    """Get environment variable"""
     value = os.getenv(key)
     if not value:
         try:
@@ -188,30 +207,30 @@ def get_env(key: str) -> str:
                     config = json.load(f)
                     value = config.get(key, "")
         except Exception as e:
-            logger.error(f"读取package.json中的{key}失败: {e}")
+            logger.error(f"Failed to read {key} from package.json: {e}")
             value = ""
     return value
 
 def main():
-    """启动 IM MCP 服务器"""
+    """Start IM MCP Server"""
     global APP_KEY, TOKEN, NAVI_HOST
     
-    # 设置环境变量
+    # Set environment variables
     APP_KEY = get_env("APP_KEY")
     TOKEN = get_env("TOKEN")
     NAVI_HOST = get_env("NAVI_HOST")
 
     if not APP_KEY or not TOKEN:
-        logger.error("环境变量未设置，请设置APP_KEY和TOKEN")
+        logger.error("Environment variables not set, please set APP_KEY and TOKEN")
         sys.exit(1)
 
-    # 启动服务器
+    # Start server
     app.run("stdio")
 
 def version():
-    """显示版本信息"""
+    """Display version information"""
     from native_mcp import __version__
-    click.echo(f"RC-IM-Native-MCP-Server 版本 {__version__}")
+    click.echo(f"RC-IM-Native-MCP-Server version {__version__}")
 
 if __name__ == "__main__":
     main()

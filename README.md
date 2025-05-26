@@ -2,6 +2,8 @@
 
 基于 MCP 协议的融云 IM 服务（包装 Rust SDK）
 
+[English Documentation](README_EN.md)
+
 ## 使用方法
 
 ### 前提--安装 UV 包管理工具
