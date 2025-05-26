@@ -75,11 +75,11 @@ class IMSDK:
                 "platform": PLATFORM,
                 "device_id": device_id,
                 "package_name": "",
-                "imlib_version": "0.17.2",
+                "imlib_version": "0.17.1",
                 "device_model": "",
                 "device_manufacturer": "",
                 "os_version": "",
-                "sdk_version_vec": {"name":"rust","version":"0.17.2"},
+                "sdk_version_vec": {"name":"rust","version":"0.17.1"},
                 "sdk_version_vec_len": 1,
                 "app_version": "1.0.0",
             }
