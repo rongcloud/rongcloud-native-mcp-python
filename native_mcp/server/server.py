@@ -31,6 +31,99 @@ NAVI_HOST = ""
 app = FastMCP("rc_im_native_mcp_server")
 
 @app.tool()
+def send_private_message(
+    user_id: str = "",
+    content: str = "",
+) -> Dict[str, Any]:
+    """
+    Send IM message to specified user
+    
+    Args:
+        user_id: Message recipient's ID. User_ID or Target_ID
+        content: Message content to send
+        
+    Returns:
+        Failure: Dictionary containing code and error
+        Success: Dictionary containing code, message_id and message
+    """
+    logger.info(f"Sending private message to {user_id}: {content}")
+
+    # Step 1: Check if IM engine is initialized
+    result = check_engine_initialized()
+    if result.get("code", -1) != 0:
+        return result
+    
+    # Step 2: Send message
+    result = default_sdk.send_message(user_id, content, RcimConversationType_Private)
+    return result
+    
+@app.tool()
+def send_group_message(
+    group_id: str = "",
+    content: str = "",
+) -> Dict[str, Any]:
+    """
+    Send IM message to specified group
+
+    Args:
+        group_id: Group ID or Target_ID
+        content: Message content to send
+        
+    Returns:
+        Failure: Dictionary containing code and error
+        Success: Dictionary containing code, message_id and message
+    """
+    logger.info(f"Sending group message to {group_id}: {content}")
+
+    # Step 1: Check if IM engine is initialized
+    result = check_engine_initialized()
+    if result.get("code", -1) != 0:
+        return result
+    
+    # Step 2: Send message
+    result = default_sdk.send_message(group_id, content, RcimConversationType_Group)
+
+
+@app.tool()
+def get_private_messages(
+    user_id: str = "",
+    order_asc: bool = False,
+    count: int = 10,
+) -> List[Dict[str, Any]]:
+    """
+    Get historical messages with specified user(User_ID)
+    
+    Args:
+        user_id: User ID to get historical messages with
+        order_asc: Whether to sort in ascending order, default is descending
+        count: Number of messages to retrieve, default is 10
+        
+    Returns:
+        Failure: Dictionary containing code and error
+        Success: Dictionary containing code and message array
+    """
+    return get_messages(user_id, RcimConversationType_Private, order_asc, count)
+
+@app.tool()
+def get_group_messages(
+    group_id: str = "",
+    order_asc: bool = False,
+    count: int = 10,
+) -> List[Dict[str, Any]]:
+    """
+    Get historical messages with specified group(Group_ID)
+    
+    Args:
+        group_id: Group ID to get historical messages with
+        order_asc: Whether to sort in ascending order, default is descending
+        count: Number of messages to retrieve, default is 10
+        
+    Returns:
+        Failure: Dictionary containing code and error
+        Success: Dictionary containing code and message array
+    """
+    return get_messages(group_id, RcimConversationType_Group, order_asc, count)
+
 def init_and_connect(
     timeout_sec: int = 30
 ) -> Dict[str, Any]:
@@ -78,72 +171,33 @@ def init_and_connect(
         "connect_success": True
     }
     
-@app.tool()
-def send_private_message(
-    user_id: str = "",
-    content: str = "",
-) -> Dict[str, Any]:
-    """
-    Send IM message to specified user
-    
-    Args:
-        user_id: Message recipient's ID. User_ID or Target_ID
-        content: Message content to send
-        
-    Returns:
-        Failure: Dictionary containing code and error
-        Success: Dictionary containing code, message_id and message
-    """
-    logger.info(f"Sending private message to {user_id}: {content}")
-    result = default_sdk.send_message(user_id, content, RcimConversationType_Private)
-    return result
-    
-@app.tool()
-def send_group_message(
-    group_id: str = "",
-    content: str = "",
-) -> Dict[str, Any]:
-    """
-    Send IM message to specified group
-
-    Args:
-        group_id: Group ID or Target_ID
-        content: Message content to send
-        
-    Returns:
-        Failure: Dictionary containing code and error
-        Success: Dictionary containing code, message_id and message
-    """
-    logger.info(f"Sending group message to {group_id}: {content}")
-    result = default_sdk.send_message(group_id, content, RcimConversationType_Group)
-    return result
+def check_engine_initialized() -> Dict[str, Any]:
+    """Check if IM engine is initialized"""
+    if not default_sdk.engine:
+        result = init_and_connect()
+        if result.get("code", -1) != 0:
+            return result
+    return {"code": 0}
 
 
-@app.tool()
-def get_history_messages(
+def get_messages(
     target_id: str = "",
     conversation_type: int = RcimConversationType_Private,
     order_asc: bool = False,
     count: int = 10,
 ) -> List[Dict[str, Any]]:
-    """
-    Get historical messages with specified user(User_ID or Target_ID) or group(Group_ID or Target_ID)
     
-    Args:
-        target_id: Target ID to get historical messages with
-        conversation_type: Private chat (1) or group chat (3), default is private chat
-        order_asc: Whether to sort in ascending order, default is descending
-        count: Number of messages to retrieve, default is 10
-        
-    Returns:
-        Failure: Dictionary containing code and error
-        Success: Dictionary containing code and message array
-    """
     logger.info(f"Getting {count} historical messages with target_id: {target_id}, conver_type: {conversation_type}, order_asc: {order_asc}")
+
+    # Step 1: Check if IM engine is initialized
+    result = check_engine_initialized()
+    if result.get("code", -1) != 0:
+        return result
+    
+    # Step 2: Get historical messages
     messages = default_sdk.get_history_messages(target_id, conversation_type, count, order=order_asc)
     return messages
 
-@app.tool()
 def disconnect() -> Dict[str, Any]:
     """
     Disconnect from IM server
@@ -230,7 +284,7 @@ def main():
 def version():
     """Display version information"""
     from native_mcp import __version__
-    click.echo(f"RC-IM-Native-MCP-Server version {__version__}")
+    click.echo(f"rongcloud-native-mcp-python version {__version__}")
 
 if __name__ == "__main__":
     main()

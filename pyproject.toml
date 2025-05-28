@@ -3,8 +3,8 @@ requires = ["hatchling"]
 build-backend = "hatchling.build"
 
 [project]
-name = "rc-im-native-mcp-server"
-version = "0.1.10"
+name = "rongcloud-native-mcp-python"
+version = "0.1.0"
 description = "Rongcloud IM Service based on MCP Protocol (Rust SDK Wrapper)"
 readme = "README.md"
 requires-python = ">=3.10"
@@ -25,11 +25,7 @@ dev = [
 ]
 
 [project.scripts]
-rc-im-native-mcp-server = "native_mcp.server.server:main"
-
-[project.urls]
-Homepage = "https://github.com/rongcloud/RC-IM-Native-MCP-Server"
-Repository = "https://github.com/rongcloud/RC-IM-Native-MCP-Server.git"
+rongcloud-native-mcp-python = "native_mcp.server.server:main"
 
 [tool.hatch.build.targets.wheel]
 packages = ["native_mcp"]

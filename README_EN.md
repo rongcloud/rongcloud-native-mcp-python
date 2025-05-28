@@ -1,4 +1,4 @@
-# Rongcloud Native MCP Server (Rust)
+# Rongcloud Native MCP
 
 Rongcloud IM Service based on MCP Protocol (Rust SDK Wrapper)
 
@@ -28,11 +28,11 @@ Configuration content:
 {
   "mcpServers": {
     "rc_im_native_mcp": {
-      "name": "rc-im-native-mcp-server",
+      "name": "rongcloud-native-mcp-python",
       "type": "stdio",
       "command": "uvx",
       "args": [
-        "rc-im-native-mcp-server"
+        "rongcloud-native-mcp-python"
       ],
       "env": {
           "APP_KEY": "Your Rongcloud App Key",

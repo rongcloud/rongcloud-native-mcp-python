@@ -1,5 +1,5 @@
 Metadata-Version: 2.4
-Name: rc-im-mcp-demo
+Name: rongcloud-native-mcp-python
 Version: 0.1.0
 Summary: Add your description here
 Requires-Python: >=3.10
@@ -11,7 +11,7 @@ Requires-Dist: httpx>=0.28.0
 Requires-Dist: diskcache>=5.6.0
 Requires-Dist: requests>=2.31.0
 
-# RC-IM-MCP-DEMO
+# rongcloud-native-mcp-python
 
 ## 项目简介
 
@@ -20,7 +20,7 @@ Requires-Dist: requests>=2.31.0
 ## 目录结构
 
 ```
-RC-IM-MCP-DEMO/
+rongcloud-native-mcp-python/
 ├── README.md
 ├── main.py
 ├── pyproject.toml

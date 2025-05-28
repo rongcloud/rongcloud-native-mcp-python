@@ -1,4 +1,4 @@
-# Rongcloud Native MCP Server（Rust）
+# Rongcloud Native MCP
 
 基于 MCP 协议的融云 IM 服务（包装 Rust SDK）
 
@@ -28,11 +28,11 @@ UV 是一个用 Rust 编写的 Python 包安装和依赖管理工具，比传统
 {
   "mcpServers": {
     "rc_im_native_mcp": {
-      "name": "rc-im-native-mcp-server",
+      "name": "rongcloud-native-mcp-python",
       "type": "stdio",
       "command": "uvx",
       "args": [
-        "rc-im-native-mcp-server"
+        "rongcloud-native-mcp-python"
       ],
       "env": {
           "APP_KEY": "Your Rongcloud App Key",
