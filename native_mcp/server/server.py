@@ -82,7 +82,7 @@ def send_group_message(
     
     # Step 2: Send message
     result = default_sdk.send_message(group_id, content, RcimConversationType_Group)
-
+    return result
 
 @app.tool()
 def get_private_messages(

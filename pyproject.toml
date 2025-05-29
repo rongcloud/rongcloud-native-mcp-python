@@ -7,7 +7,7 @@ name = "rongcloud-native-mcp-python"
 version = "0.1.0"
 description = "Rongcloud IM Service based on MCP Protocol (Rust SDK Wrapper)"
 readme = "README.md"
-requires-python = ">=3.10"
+requires-python = ">=3.12"
 authors = [
     { name = "Rongcloud", email = "imsdk@rongcloud.cn" }
 ]

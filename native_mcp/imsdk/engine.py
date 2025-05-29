@@ -253,14 +253,6 @@ class IMSDK:
             return {"code": -1, "message": "Not connected"}
             
         try:
-            # Choose conversation type based on integer value
-            if conversation_type == 1:
-                real_conversation_type = RcimConversationType_Private
-            elif conversation_type == 2:
-                real_conversation_type = RcimConversationType_Group
-            else:
-                return {"code": -1, "message": "Invalid conversation type"}
-            
             
             # Create callback data class
             class SendMessageData:
@@ -317,7 +309,7 @@ class IMSDK:
             message_callback_fn = rcim_client.RcimMessageCb(empty_message_callback)
             
             message_box_dic = {
-                'conv_type':real_conversation_type,
+                'conv_type':conversation_type,
                 'target_id':receiver,
                 'object_name': 'RC:TxtMsg',
                 'content' : {
