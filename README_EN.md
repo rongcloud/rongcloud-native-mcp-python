@@ -54,47 +54,51 @@ First install both UV and Bun (both required), then restart Cherry Studio. Confi
 
 The server exposes the following tools through the MCP protocol:
 
-### 1. `init_and_connect`
+### 1. `send_private_message`
 
-- **Function**: Initialize IM engine and connect to IM server
+- **Function**: Send IM message to specified user (private chat)
 - **Parameters**:
-  - `timeout_sec` (int, default 30): Connection timeout in seconds
+  - `user_id` (str, default ""): Message recipient's user ID
+  - `content` (str, default ""): Message content
 - **Returns**:
-  - `code` (int): 0 for success, non-zero for failure
-  - `message` (str): Result description
-  - `init_success` (bool): Whether initialization was successful
-  - `connect_success` (bool): Whether connection was successful
+  - Failure: Dictionary containing `code` and `error`
+  - Success: Dictionary containing `code`, `message_id` and `message`
 
-### 2. `send_message`
+### 2. `send_group_message`
 
-- **Function**: Send IM message to specified user (supports private/group chat)
+- **Function**: Send IM message to specified group (group chat)
 - **Parameters**:
-  - `receiver` (str): Recipient ID
-  - `content` (str): Message content
-  - `conversation_type` (int, default 1): Conversation type, 1=private chat, 2=group chat
+  - `group_id` (str, default ""): Group ID
+  - `content` (str, default ""): Message content
 - **Returns**:
-  - Failure: `code`, `message`
-  - Success: `code`, `message_id`, `message`
+  - Failure: Dictionary containing `code` and `error`
+  - Success: Dictionary containing `code`, `message_id` and `message`
 
-### 3. `get_history_messages`
+### 3. `get_private_messages`
 
-- **Function**: Get historical messages with specified user
+- **Function**: Get historical messages with specified user (private chat)
 - **Parameters**:
-  - `target_id` (str): Target ID (User_ID or Group_ID)
-  - `conversation_type` (int, default 1): Conversation type, 1=private chat, 3=group chat
+  - `user_id` (str, default ""): User ID
   - `order_asc` (bool, default False): Sort order, False=descending, True=ascending
   - `count` (int, default 10): Number of messages to retrieve
 - **Returns**:
-  - Failure: `code`, `message`
-  - Success: `code`, `messages` (message array)
+  - Failure: Dictionary containing `code` and `error`
+  - Success: Dictionary containing `code` and message array
 
-### 4. `disconnect`
+### 4. `get_group_messages`
 
-- **Function**: Disconnect from IM server
-- **Parameters**: None
+- **Function**: Get historical messages of specified group (group chat)
+- **Parameters**:
+  - `group_id` (str, default ""): Group ID
+  - `order_asc` (bool, default False): Sort order, False=descending, True=ascending
+  - `count` (int, default 10): Number of messages to retrieve
 - **Returns**:
-  - `code` (int): 0 for success, non-zero for failure
-  - `message` (str): Result description
+  - Failure: Dictionary containing `code` and `error`
+  - Success: Dictionary containing `code` and message array
+
+**Note**:
+- The IM engine will automatically initialize and connect on the first call to any message-related tool
+- Resource cleanup is automatically handled when the server disconnects
 
 ## Common Issues
 

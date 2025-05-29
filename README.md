@@ -55,45 +55,51 @@ UV 是一个用 Rust 编写的 Python 包安装和依赖管理工具，比传统
 
 服务端通过 MCP 协议暴露以下工具：
 
-### 1. `init_and_connect`
+### 1. `send_private_message`
 
-- **功能**：初始化 IM 引擎并连接到 IM 服务器
+- **功能**：发送 IM 消息给指定用户（私聊）
 - **参数**：
-  - `timeout_sec` (int, 默认30)：连接超时时间（秒）
+  - `user_id` (str, 默认"")：消息接收者的用户ID
+  - `content` (str, 默认"")：消息内容
 - **返回**：
-  - `code` (int)：0 表示成功，非0为失败
-  - `message` (str)：结果说明
-  - `init_success` (bool)：初始化是否成功
-  - `connect_success` (bool)：连接是否成功
+  - 失败：包含 `code` 和 `error` 的字典
+  - 成功：包含 `code`、`message_id` 和 `message` 的字典
 
-### 2. `send_message`
+### 2. `send_group_message`
 
-- **功能**：发送 IM 消息给指定用户（支持单聊/群聊）
+- **功能**：发送 IM 消息给指定群组（群聊）
 - **参数**：
-  - `receiver` (str)：消息接收者ID
-  - `content` (str)：消息内容
-  - `conversation_type` (int, 默认1)：会话类型，1=单聊，2=群聊
+  - `group_id` (str, 默认"")：群组ID
+  - `content` (str, 默认"")：消息内容
 - **返回**：
-  - 失败：`code`、`message`
-  - 成功：`code`、`message_id`、`message`
+  - 失败：包含 `code` 和 `error` 的字典
+  - 成功：包含 `code`、`message_id` 和 `message` 的字典
 
-### 3. `get_history_messages`
+### 3. `get_private_messages`
 
-- **功能**：获取与指定用户的历史消息
+- **功能**：获取与指定用户的历史消息（私聊）
 - **参数**：
-  - `user_id` (str)：用户ID
+  - `user_id` (str, 默认"")：用户ID
+  - `order_asc` (bool, 默认False)：是否按升序排列，默认为降序
   - `count` (int, 默认10)：获取的消息数量
 - **返回**：
-  - 失败：`code`、`message`
-  - 成功：`code`、`messages`（消息数组）
+  - 失败：包含 `code` 和 `error` 的字典
+  - 成功：包含 `code` 和消息数组的字典
 
-### 4. `disconnect`
+### 4. `get_group_messages`
 
-- **功能**：断开与 IM 服务器的连接
-- **参数**：无
+- **功能**：获取指定群组的历史消息（群聊）
+- **参数**：
+  - `group_id` (str, 默认"")：群组ID
+  - `order_asc` (bool, 默认False)：是否按升序排列，默认为降序
+  - `count` (int, 默认10)：获取的消息数量
 - **返回**：
-  - `code` (int)：0 表示成功，非0为失败
-  - `message` (str)：结果说明
+  - 失败：包含 `code` 和 `error` 的字典
+  - 成功：包含 `code` 和消息数组的字典
+
+**注意**：
+- IM 引擎会在首次调用任何消息相关工具时自动初始化和连接
+- 服务器断开连接时会自动处理资源清理
 
 ## 常见问题
 

@@ -102,6 +102,13 @@ def get_private_messages(
         Failure: Dictionary containing code and error
         Success: Dictionary containing code and message array
     """
+
+    # Step 1: Check if IM engine is initialized
+    result = check_engine_initialized()
+    if result.get("code", -1) != 0:
+        return result
+    
+    # Step 2: Get historical messages
     return get_messages(user_id, RcimConversationType_Private, order_asc, count)
 
 @app.tool()
@@ -122,6 +129,12 @@ def get_group_messages(
         Failure: Dictionary containing code and error
         Success: Dictionary containing code and message array
     """
+
+    # Step 1: Check if IM engine is initialized
+    result = check_engine_initialized()
+    if result.get("code", -1) != 0:
+        return result
+    
     return get_messages(group_id, RcimConversationType_Group, order_asc, count)
 
 def init_and_connect(
