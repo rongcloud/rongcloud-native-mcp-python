@@ -27,7 +27,7 @@ UV 是一个用 Rust 编写的 Python 包安装和依赖管理工具，比传统
 ```json
 {
   "mcpServers": {
-    "rc_im_native_mcp": {
+    "rongcloud-native-mcp-python": {
       "name": "rongcloud-native-mcp-python",
       "type": "stdio",
       "command": "uvx",

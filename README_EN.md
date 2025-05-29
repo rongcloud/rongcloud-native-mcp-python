@@ -27,7 +27,7 @@ Configuration content:
 ```json
 {
   "mcpServers": {
-    "rc_im_native_mcp": {
+    "rongcloud-native-mcp-python": {
       "name": "rongcloud-native-mcp-python",
       "type": "stdio",
       "command": "uvx",

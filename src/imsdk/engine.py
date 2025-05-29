@@ -10,11 +10,11 @@ import threading
 import time
 from typing import Dict, Any, List
 
-from native_mcp.imsdk import LIB_DIR
-from native_mcp.imsdk.util import dict_to_ctypes,ctypes_to_dict
-from native_mcp.lib import rcim_client
-from native_mcp.lib.rcim_utils import string_cast, char_pointer_cast
-from native_mcp.lib.rcim_client import (
+from src.imsdk import LIB_DIR
+from src.imsdk.util import dict_to_ctypes,ctypes_to_dict
+from src.lib import rcim_client
+from src.lib.rcim_utils import string_cast, char_pointer_cast
+from src.lib.rcim_client import (
     RcimConversationType_Group,
     RcimConversationType_Private,
     RcimDisconnectMode_NoPush,
@@ -37,7 +37,7 @@ elif sys.platform == 'linux':
 USER_ID = ""
 
 # 配置日志
-from native_mcp.utils.mcp_utils import logger
+from src.utils.mcp_utils import logger
 
 class IMSDK:
     """IM SDK的Python封装类"""

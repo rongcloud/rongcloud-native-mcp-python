@@ -17,18 +17,18 @@ PROJECT_ROOT = str(Path(__file__).parent.parent.parent)
 if PROJECT_ROOT not in sys.path:
     sys.path.insert(0, PROJECT_ROOT)
 
-from native_mcp.lib.rcim_client import RcimConversationType_Group, RcimConversationType_Private
-from native_mcp.imsdk import default_sdk
+from src.lib.rcim_client import RcimConversationType_Group, RcimConversationType_Private
+from src.imsdk import default_sdk
 
 # Configure logging
-from native_mcp.utils.mcp_utils import logger
+from src.utils.mcp_utils import logger
 
 # Global variables
 APP_KEY = ""
 TOKEN = ""
 NAVI_HOST = ""
 
-app = FastMCP("rc_im_native_mcp_server")
+app = FastMCP("rongcloud-native-mcp-python")
 
 @app.tool()
 def send_private_message(
@@ -283,7 +283,7 @@ def main():
 
 def version():
     """Display version information"""
-    from native_mcp import __version__
+    from src import __version__
     click.echo(f"rongcloud-native-mcp-python version {__version__}")
 
 if __name__ == "__main__":

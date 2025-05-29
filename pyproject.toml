@@ -25,23 +25,23 @@ dev = [
 ]
 
 [project.scripts]
-rongcloud-native-mcp-python = "native_mcp.server.server:main"
+rongcloud-native-mcp-python = "src.server.server:main"
 
 [tool.hatch.build.targets.wheel]
-packages = ["native_mcp"]
+packages = ["src"]
 include = [
-    "native_mcp/**/*.py",
-    "native_mcp/lib/**/*.so",
-    "native_mcp/lib/**/*.dylib",
-    "native_mcp/lib/**/*.dll"
+    "src/**/*.py",
+    "src/lib/**/*.so",
+    "src/lib/**/*.dylib",
+    "src/lib/**/*.dll"
 ]
 
 [tool.hatch.build]
 exclude = [
-    "native_mcp/imsdk/rust_db/",
-    "native_mcp/imsdk/rust_db/**/*",
-    "native_mcp/lib/rust_db/",
-    "native_mcp/lib/rust_db/**/*",
+    "src/imsdk/rust_db/",
+    "src/imsdk/rust_db/**/*",
+    "src/lib/rust_db/",
+    "src/lib/rust_db/**/*",
     "**/*.db",
     "**/*.db-shm",
     "**/*.db-wal",
@@ -61,8 +61,8 @@ exclude = [
     "**/*.egg-info/**/*"
 ]
 artifacts = [
-    "native_mcp/imsdk/rust_db/**",
-    "native_mcp/lib/rust_db/**",
+    "src/imsdk/rust_db/**",
+    "src/lib/rust_db/**",
     "readme_img/**"
 ]
 
