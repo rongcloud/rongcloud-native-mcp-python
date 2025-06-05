@@ -70,7 +70,7 @@ First install both UV and Bun (both required), then restart Cherry Studio. Confi
 
 The server exposes the following tools through the MCP protocol:
 
-### 1. `send_private_message`
+### 1. `send_private_text_message`
 
 - **Function**: Send IM message to specified user (private chat)
 - **Parameters**:
@@ -80,7 +80,7 @@ The server exposes the following tools through the MCP protocol:
   - Failure: Dictionary containing `code` and `error`
   - Success: Dictionary containing `code`, `message_id` and `message`
 
-### 2. `send_group_message`
+### 2. `send_group_text_message`
 
 - **Function**: Send IM message to specified group (group chat)
 - **Parameters**:
