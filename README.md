@@ -35,15 +35,31 @@ UV 是一个用 Rust 编写的 Python 包安装和依赖管理工具，比传统
         "rongcloud-native-mcp-python"
       ],
       "env": {
-          "APP_KEY": "Your Rongcloud App Key",
-          "TOKEN": "Your Rongcloud SDK Token (from Server API)",
-          "NAVI_HOST": "Your Rongcloud SDK Nav URL"
+          "APP_KEY": "融云 App Key",
+          "TOKEN": "应用 SDK Token (从 Server API 获取)",
+          "AREA_CODE": "数据中心区域码（北京 = 1，新加坡 = 2，北美 = 3，新加坡B = 4，沙特 = 5），非公有云客户不设置",
+          "NAVI_URL": "导航地址（非公有云客户）",
+          "STAT_URL": "数据统计地址（非公有云客户）"
       }
     }
   }
 }
 
 ```
+
+### 环境变量说明
+
+- `APP_KEY`: （必填）您的融云应用密钥
+- `TOKEN`: （必填）应用 SDK 令牌，从服务器 API 获取
+- `AREA_CODE`: （可选）数据中心区域代码：
+  - 1: 北京
+  - 2: 新加坡
+  - 3: 北美
+  - 4: 新加坡 B
+  - 5: 沙特
+  - 注意：非公有云客户请勿设置
+- `NAVI_URL`: （可选）导航 URL，非公有云客户必填
+- `STAT_URL`: （可选）统计 URL，非公有云客户必填
 
 ### 在 Cherry studio 中使用
 
@@ -55,7 +71,7 @@ UV 是一个用 Rust 编写的 Python 包安装和依赖管理工具，比传统
 
 服务端通过 MCP 协议暴露以下工具：
 
-### 1. `send_private_message`
+### 1. `send_private_text_message`
 
 - **功能**：发送 IM 消息给指定用户（私聊）
 - **参数**：
@@ -65,7 +81,7 @@ UV 是一个用 Rust 编写的 Python 包安装和依赖管理工具，比传统
   - 失败：包含 `code` 和 `error` 的字典
   - 成功：包含 `code`、`message_id` 和 `message` 的字典
 
-### 2. `send_group_message`
+### 2. `send_group_text_message`
 
 - **功能**：发送 IM 消息给指定群组（群聊）
 - **参数**：
@@ -113,7 +129,7 @@ A: 确保 UV 和 Bun 安装成功，重启 Cherry Studio 后重新开启服务�
 
 ### Q: 为什么调用工具后返回错误？
 
-A: 确保环境变量（APP_KEY、TOKEN、NAVI_HOST）正确设置，重启服务后重新调用工具。
+A: 确保环境变量（APP_KEY、TOKEN、NAVI_URL）正确设置，重启服务后重新调用工具。
 
 ## 技术支持
 

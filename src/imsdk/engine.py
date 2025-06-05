@@ -15,8 +15,6 @@ from src.imsdk.util import dict_to_ctypes,ctypes_to_dict
 from src.lib import rcim_client
 from src.lib.rcim_utils import string_cast, char_pointer_cast
 from src.lib.rcim_client import (
-    RcimConversationType_Group,
-    RcimConversationType_Private,
     RcimDisconnectMode_NoPush,
     RcimEngineBuilder,
     RcimEngineBuilderParam,
@@ -48,13 +46,20 @@ class IMSDK:
         self.engine = None
         self.builder = None
     
-    def engine_build(self, app_key: str, navi_host: str, device_id: str) -> Dict[str, Any]:
+    def engine_build(self, app_key: str, device_id: str, 
+                     area_code: int = -1, 
+                     navi_url: str = "", 
+                     stats_url: str = ""
+                     ) -> Dict[str, Any]:
         """
         Initialize IM SDK and return status
         
         Args:
             app_key: Application's AppKey
             device_id: Device ID
+            area_code: Area code (only valid when navi_url and stats_url are empty)
+            navi_url: Navi URL (valid if area_code is empty and navi_url is not empty)
+            stats_url: Statistic URL (valid if area_code is empty and stats_url is not empty)
             
         Returns:
             Failure: Dictionary containing code and message
@@ -66,94 +71,94 @@ class IMSDK:
         self.app_key = app_key
         self.device_id = device_id
         
-        logger.info(f"Initializing IM SDK, AppKey: {app_key}, Device ID: {device_id}, Platform: {PLATFORM}")
+        logger.info(f"Initializing IM SDK, AppKey: {app_key}, Device ID: {device_id}, Area Code: {area_code}, Navi URL: {navi_url}, Statistic URL: {stats_url}")
         
-        try:
-            # Prepare initialization parameters
-            engine_builder_param = {
-                'app_key': app_key,
-                "platform": PLATFORM,
-                "device_id": device_id,
-                "package_name": "",
-                "imlib_version": "0.17.1",
-                "device_model": "",
-                "device_manufacturer": "",
-                "os_version": "",
-                "sdk_version_vec": {"name":"rust","version":"0.17.1"},
-                "sdk_version_vec_len": 1,
-                "app_version": "1.0.0",
-            }
-            
-            # Create parameter struct
-            param = dict_to_ctypes(RcimEngineBuilderParam, engine_builder_param)
-            
-            # Create builder pointer
-            builder = ctypes.pointer(ctypes.pointer(RcimEngineBuilder()))
-            
-            # Call creation function
-            ret = rcim_client.rcim_create_engine_builder(param,builder)
-            if ret != 0:
-                logger.info(f"rcim_create_engine_builder failed, error code: {ret}")
-                return {"code": -1, "message": f"rcim_create_engine_builder failed, error code: {ret}"}
-            
-            # Save builder reference
-            self.builder = builder.contents
-            
-            # Set storage path
-            db_path = os.path.join(LIB_DIR, "rust_db")
-            # Ensure directory exists
-            os.makedirs(db_path, exist_ok=True)
-            
-            ret = rcim_client.rcim_engine_builder_set_store_path(self.builder, char_pointer_cast(db_path))
-            if ret != 0:
-                logger.info(f"rcim_engine_builder_set_store_path failed, error code: {ret}")
+        # Prepare initialization parameters
+        engine_builder_param = {
+            'app_key': app_key,
+            "platform": PLATFORM,
+            "device_id": device_id,
+            "package_name": "",
+            "imlib_version": "0.17.1",
+            "device_model": "",
+            "device_manufacturer": "",
+            "os_version": "",
+            "sdk_version_vec": {"name":"rust","version":"0.17.1"},
+            "sdk_version_vec_len": 1,
+            "app_version": "1.0.0",
+        }
+        
+        # Create parameter struct
+        param = dict_to_ctypes(RcimEngineBuilderParam, engine_builder_param)
+        
+        # Create builder pointer
+        builder = ctypes.pointer(ctypes.pointer(RcimEngineBuilder()))
+        
+        # Call creation function
+        ret = rcim_client.rcim_create_engine_builder(param,builder)
+        if ret != 0:
+            logger.info(f"rcim_create_engine_builder failed, error code: {ret}")
+            return {"code": -1, "message": f"rcim_create_engine_builder failed, error code: {ret}"}
+        
+        # Save builder reference
+        self.builder = builder.contents
+        
+        # Set storage path
+        db_path = os.path.join(LIB_DIR, "rust_db")
+        # Ensure directory exists
+        os.makedirs(db_path, exist_ok=True)
+        
+        ret = rcim_client.rcim_engine_builder_set_store_path(self.builder, char_pointer_cast(db_path))
+        if ret != 0:
+            logger.info(f"rcim_engine_builder_set_store_path failed, error code: {ret}")
 
+        if area_code <= 5 and area_code >= 1:
+            ret = rcim_client.rcim_engine_builder_set_area_code(self.builder, area_code)
+            if ret != 0:
+                logger.info(f"rcim_engine_builder_set_area_code failed, error code: {ret}")
+        else:
             # Set navi server
-            navi_list = [navi_host]
-            char_ptrs = (ctypes.POINTER(ctypes.c_char) * len(navi_list))()
-            for i, string in enumerate(navi_list):
-                if string is None:
-                    char_ptrs[i] = None
-                    continue
-                # Create c_char array pointer for corresponding string
-                char_array = ctypes.create_string_buffer(string.encode('utf-8'))
-                char_ptrs[i] = ctypes.cast(char_array, ctypes.POINTER(ctypes.c_char))
-            double_ptr = ctypes.cast(char_ptrs, ctypes.POINTER(ctypes.POINTER(ctypes.c_char)))
-            
-            ret = rcim_client.rcim_engine_builder_set_navi_server(self.builder, double_ptr,1)
-            if ret != 0:
-                logger.info(f"rcim_engine_builder_set_navi_server failed, error code: {ret}")
+            if navi_url != "":
+                navi_list = [navi_url]
+                char_ptrs = (ctypes.POINTER(ctypes.c_char) * len(navi_list))()
+                for i, string in enumerate(navi_list):
+                    if string is None:
+                        char_ptrs[i] = None
+                        continue
+                    # Create c_char array pointer for corresponding string
+                    char_array = ctypes.create_string_buffer(string.encode('utf-8'))
+                    char_ptrs[i] = ctypes.cast(char_array, ctypes.POINTER(ctypes.c_char))
+                double_ptr = ctypes.cast(char_ptrs, ctypes.POINTER(ctypes.POINTER(ctypes.c_char)))
+                
+                ret = rcim_client.rcim_engine_builder_set_navi_server(self.builder, double_ptr,1)
+                if ret != 0:
+                    logger.info(f"rcim_engine_builder_set_navi_server failed, error code: {ret}")
+            if stats_url != "":
+                ret = rcim_client.rcim_engine_builder_set_statistic_server(self.builder, char_pointer_cast(stats_url))
+                if ret != 0:
+                    logger.info(f"rcim_engine_builder_set_statistic_server failed, error code: {ret}")
+        # Create engine
+        engine_ptr = ctypes.pointer(ctypes.pointer(RcimEngineSync()))
+        
+        logger.info(f"rcim_engine_builder_build about to execute")
 
-            # Create engine
-            engine_ptr = ctypes.pointer(ctypes.pointer(RcimEngineSync()))
-            
-            logger.info(f"rcim_engine_builder_build about to execute")
+        # Build engine
+        ret = rcim_client.rcim_engine_builder_build(self.builder, engine_ptr)
+        if ret != 0:
+            logger.info(f"rcim_engine_builder_build failed, error code: {ret}")
+            return {"code": -1, "message": f"rcim_engine_builder_build failed, error code: {ret}"}
+        
+        # Save engine reference
+        self.engine = engine_ptr.contents
 
-            # Build engine
-            ret = rcim_client.rcim_engine_builder_build(self.builder, engine_ptr)
-            if ret != 0:
-                logger.info(f"rcim_engine_builder_build failed, error code: {ret}")
-                return {"code": -1, "message": f"rcim_engine_builder_build failed, error code: {ret}"}
-            
-            # Save engine reference
-            self.engine = engine_ptr.contents
+        rcim_client.rcim_engine_set_log_filter(self.engine,RcimLogLevel_Debug)
 
-            rcim_client.rcim_engine_set_log_filter(self.engine,RcimLogLevel_Debug)
-
-            return {
-                "code": 0,
-                "app_key": app_key,
-                "device_id": device_id,
-                "message": "IM SDK initialization successful"
-            }
-        except Exception as e:
-            import traceback
-            logger.info(f"IM SDK initialization failed: {e}")
-            logger.info(f"Exception stack: {traceback.format_exc()}")
-            return {
-                "code": -1,
-                "message": str(e)
-            }
+        return {
+            "code": 0,
+            "app_key": app_key,
+            "device_id": device_id,
+            "message": "IM SDK initialization successful"
+        }
 
     def engine_connect(self, token: str, timeout_sec: int = 10) -> Dict[str, Any]:
         """
@@ -233,7 +238,7 @@ class IMSDK:
         # Return callback result
         return callback_data.result
     
-    def send_message(self, receiver: str, content: str, conversation_type = RcimConversationType_Private) -> Dict[str, Any]:
+    def send_text_message(self, receiver: str, content: str, conversation_type) -> Dict[str, Any]:
         """
         Send message
         
@@ -349,7 +354,7 @@ class IMSDK:
                 "message": str(e)
             }
     
-    def get_history_messages(self, target_id: str, conversation_type: int = RcimConversationType_Private, count: int = 10, timestamp: int = 0, order: int = 0) -> List[Dict[str, Any]]:
+    def get_history_messages(self, target_id: str, conversation_type: int, count: int = 10, timestamp: int = 0, order: int = 0) -> List[Dict[str, Any]]:
         """
         Get remote historical messages
         

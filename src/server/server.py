@@ -5,6 +5,7 @@ This server implements the MCP protocol and directly connects to the IM SDK for 
 
 """
 import json
+import logging
 import os
 import sys
 from pathlib import Path
@@ -26,12 +27,14 @@ from src.utils.mcp_utils import logger
 # Global variables
 APP_KEY = ""
 TOKEN = ""
-NAVI_HOST = ""
+NAVI_URL = ""
+AREA_CODE = -1
+STATS_URL = ""
 
 app = FastMCP("rongcloud-native-mcp-python")
 
 @app.tool()
-def send_private_message(
+def send_private_text_message(
     user_id: str = "",
     content: str = "",
 ) -> Dict[str, Any]:
@@ -54,11 +57,11 @@ def send_private_message(
         return result
     
     # Step 2: Send message
-    result = default_sdk.send_message(user_id, content, RcimConversationType_Private)
+    result = default_sdk.send_text_message(user_id, content, RcimConversationType_Private)
     return result
     
 @app.tool()
-def send_group_message(
+def send_group_text_message(
     group_id: str = "",
     content: str = "",
 ) -> Dict[str, Any]:
@@ -81,7 +84,7 @@ def send_group_message(
         return result
     
     # Step 2: Send message
-    result = default_sdk.send_message(group_id, content, RcimConversationType_Group)
+    result = default_sdk.send_text_message(group_id, content, RcimConversationType_Group)
     return result
 
 @app.tool()
@@ -159,7 +162,7 @@ def init_and_connect(
         device_id_str = str(get_device_id())
                     
         # Initialize engine using IMSDK's initialize method
-        init_result = default_sdk.engine_build(app_key_str, NAVI_HOST, device_id_str)
+        init_result = default_sdk.engine_build(app_key_str, device_id_str, AREA_CODE, NAVI_URL, STATS_URL)
         if init_result.get("code", -1) != 0:
             logger.error(f"IM engine initialization failed: {init_result}")
             return init_result
@@ -263,8 +266,17 @@ def get_device_id():
         device_id = "mcp_demo"  # Use default value
     return device_id
 
-def get_env(key: str) -> str:
-    """Get environment variable"""
+def get_env(key: str, value_type: type = str, default_value: Any = "") -> Any:
+    """Get environment variable with type conversion
+
+    Args:
+        key: Environment variable key
+        value_type: Type to convert to (str, int, etc)
+        default_value: Default value if not found
+
+    Returns:
+        Converted value or default value
+    """
     value = os.getenv(key)
     if not value:
         try:
@@ -272,20 +284,30 @@ def get_env(key: str) -> str:
             if os.path.exists(package_path):
                 with open(package_path, "r", encoding="utf-8") as f:
                     config = json.load(f)
-                    value = config.get(key, "")
+                    value = config.get(key, default_value)
         except Exception as e:
             logger.error(f"Failed to read {key} from package.json: {e}")
-            value = ""
-    return value
+            value = default_value
+    
+    if value == "":
+        return default_value
+        
+    try:
+        return value_type(value)
+    except (ValueError, TypeError):
+        logger.error(f"Failed to convert {key}={value} to type {value_type}")
+        return default_value
 
 def main():
     """Start IM MCP Server"""
-    global APP_KEY, TOKEN, NAVI_HOST
+    global APP_KEY, TOKEN, NAVI_URL, AREA_CODE, STATS_URL
     
     # Set environment variables
     APP_KEY = get_env("APP_KEY")
     TOKEN = get_env("TOKEN")
-    NAVI_HOST = get_env("NAVI_HOST")
+    AREA_CODE = get_env("AREA_CODE", int, -1)  # Convert to int, default -1
+    NAVI_URL = get_env("NAVI_URL", str, "")
+    STATS_URL = get_env("STATS_URL", str, "")
 
     if not APP_KEY or not TOKEN:
         logger.error("Environment variables not set, please set APP_KEY and TOKEN")

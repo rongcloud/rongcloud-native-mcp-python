@@ -1,6 +1,6 @@
 # Rongcloud Native MCP
 
-Rongcloud IM Service based on MCP Protocol (Rust SDK Wrapper)
+RongCloud IM service based on MCP protocol (wrapping Rust SDK)
 
 [中文文档](README.md)
 
@@ -35,14 +35,30 @@ Configuration content:
         "rongcloud-native-mcp-python"
       ],
       "env": {
-          "APP_KEY": "Your Rongcloud App Key",
-          "TOKEN": "Your Rongcloud SDK Token (from Server API)",
-          "NAVI_HOST": "Your Rongcloud SDK Nav URL"
+          "APP_KEY": "Rongcloud App Key",
+          "TOKEN": "Application SDK Token (obtained from Server API)",
+          "AREA_CODE": "Data center region code, do not set for non-public cloud customers",
+          "NAVI_URL": "Nav URL (for non-public cloud customers)",
+          "STAT_URL": "Statistics URL (for non-public cloud customers)"
       }
     }
   }
 }
 ```
+
+### Environment Variables
+
+- `APP_KEY`: (Required) Your Rongcloud application key
+- `TOKEN`: (Required) Application SDK token, obtained from Server API
+- `AREA_CODE`: (Optional) Data center region code:
+  - 1: Beijing
+  - 2: Singapore
+  - 3: North America
+  - 4: Singapore B
+  - 5: Saudi Arabia
+  - Note: Do not set for non-public cloud customers
+- `NAVI_URL`: (Optional) Navigation URL, required for non-public cloud customers
+- `STAT_URL`: (Optional) Statistics URL, required for non-public cloud customers
 
 ### Using in Cherry Studio
 
@@ -112,7 +128,7 @@ A: Make sure both UV and Bun are installed successfully, restart Cherry Studio, 
 
 ### Q: Why do tool calls return errors?
 
-A: Make sure environment variables (APP_KEY, TOKEN, NAVI_HOST) are correctly set, restart the service, and try calling the tools again.
+A: Make sure environment variables (APP_KEY, TOKEN, NAVI_URL, AREA_CODE, STAT_URL) are correctly set, restart the service, and try calling the tools again.
 
 ## Technical Support
 
