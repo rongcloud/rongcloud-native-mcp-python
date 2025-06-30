@@ -37,6 +37,7 @@ app = FastMCP("rongcloud-native-mcp-python")
 def send_private_text_message(
     user_id: str = "",
     content: str = "",
+    ext_content: dict = {}
 ) -> Dict[str, Any]:
     """
     Send IM message to specified user
@@ -44,6 +45,7 @@ def send_private_text_message(
     Args:
         user_id: Message recipient's ID. User_ID or Target_ID
         content: Message content to send
+        ext_content: Extended content dictionary for additional message data
         
     Returns:
         Failure: Dictionary containing code and error
@@ -57,13 +59,14 @@ def send_private_text_message(
         return result
     
     # Step 2: Send message
-    result = default_sdk.send_text_message(user_id, content, RcimConversationType_Private)
+    result = default_sdk.send_text_message(user_id, content, RcimConversationType_Private, ext_content)
     return result
     
 @app.tool()
 def send_group_text_message(
     group_id: str = "",
     content: str = "",
+    ext_content: dict = {}
 ) -> Dict[str, Any]:
     """
     Send IM message to specified group
@@ -71,6 +74,7 @@ def send_group_text_message(
     Args:
         group_id: Group ID or Target_ID
         content: Message content to send
+        ext_content: Extended content dictionary for additional message data
         
     Returns:
         Failure: Dictionary containing code and error
@@ -84,7 +88,7 @@ def send_group_text_message(
         return result
     
     # Step 2: Send message
-    result = default_sdk.send_text_message(group_id, content, RcimConversationType_Group)
+    result = default_sdk.send_text_message(group_id, content, RcimConversationType_Group, ext_content)
     return result
 
 @app.tool()
@@ -139,6 +143,78 @@ def get_group_messages(
         return result
     
     return get_messages(group_id, RcimConversationType_Group, order_asc, count)
+
+@app.tool()
+def send_private_image_message(
+    user_id: str = "",
+    local_path: str = "Without quote",
+    ext_content: dict = {}
+) -> Dict[str, Any]:
+    """
+    Send private image message
+    
+    Args:
+        user_id: Recipient user ID
+        local_path: Local image file path
+        ext_content: Extended content dictionary for additional message data
+        
+    Returns:
+        Failure: Dictionary containing code and error
+        Success: Dictionary containing code, message_id and message
+    """
+    
+    # Step 1: Check if IM engine is initialized
+    result = check_engine_initialized()
+    if result.get("code", -1) != 0:
+        return result
+    
+    return default_sdk.send_image_message(user_id, local_path, RcimConversationType_Private, ext_content)
+
+@app.tool()
+def send_group_image_message(
+    group_id: str = "",
+    local_path: str = "Without quote",
+    ext_content: dict = {}
+) -> Dict[str, Any]:
+    """
+    Send group image message
+    
+    Args:
+        group_id: Recipient group ID
+        local_path: Local image file path
+        ext_content: Extended content dictionary for additional message data
+        
+    Returns:
+        Failure: Dictionary containing code and error
+        Success: Dictionary containing code, message_id and message
+    """
+    
+    # Step 1: Check if IM engine is initialized
+    result = check_engine_initialized()
+    if result.get("code", -1) != 0:
+        return result
+    
+    return default_sdk.send_image_message(group_id, local_path, RcimConversationType_Group, ext_content)
+
+@app.tool()
+def recall_message(
+    message_dict: dict = {"whole message object":"Like : {'message_id':'MESSAGE_ID', 'conversation_type':0, 'target_id':'TARGET_ID', ...}"}
+) -> Dict[str, Any]:
+    """
+    Recall message
+    
+    Args:
+        message_dict: Complete message object containing message_id, conversation_type, target_id, etc.
+        
+    Returns:
+        Failure: Dictionary containing code and error
+        Success: Dictionary containing code and message
+    """
+    result = check_engine_initialized()
+    if result.get("code", -1) != 0:
+        return result
+    
+    return default_sdk.recall_message(message_dict)
 
 def init_and_connect(
     timeout_sec: int = 30
@@ -278,18 +354,20 @@ def get_env(key: str, value_type: type = str, default_value: Any = "") -> Any:
         Converted value or default value
     """
     value = os.getenv(key)
-    if not value:
+    if not value or value is None:
         try:
             package_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), "config.json")
             if os.path.exists(package_path):
                 with open(package_path, "r", encoding="utf-8") as f:
                     config = json.load(f)
                     value = config.get(key, default_value)
+            else:
+                value = default_value
         except Exception as e:
             logger.error(f"Failed to read {key} from package.json: {e}")
             value = default_value
     
-    if value == "":
+    if not value or value is None or value == "":
         return default_value
         
     try:

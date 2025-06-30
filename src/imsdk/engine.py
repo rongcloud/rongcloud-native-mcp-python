@@ -15,6 +15,8 @@ from src.imsdk.util import dict_to_ctypes,ctypes_to_dict
 from src.lib import rcim_client
 from src.lib.rcim_utils import string_cast, char_pointer_cast
 from src.lib.rcim_client import (
+    RcimConversationType_Group,
+    RcimConversationType_Private,
     RcimDisconnectMode_NoPush,
     RcimEngineBuilder,
     RcimEngineBuilderParam,
@@ -34,15 +36,15 @@ elif sys.platform == 'linux':
 
 USER_ID = ""
 
-# 配置日志
+# Configure logging
 from src.utils.mcp_utils import logger
 
 class IMSDK:
-    """IM SDK的Python封装类"""
+    """Python wrapper class for IM SDK"""
     
     def __init__(self) -> None:
-        """初始化IM SDK"""
-        # 初始化属性
+        """Initialize IM SDK"""
+        # Initialize attributes
         self.engine = None
         self.builder = None
     
@@ -140,8 +142,6 @@ class IMSDK:
         # Create engine
         engine_ptr = ctypes.pointer(ctypes.pointer(RcimEngineSync()))
         
-        logger.info(f"rcim_engine_builder_build about to execute")
-
         # Build engine
         ret = rcim_client.rcim_engine_builder_build(self.builder, engine_ptr)
         if ret != 0:
@@ -150,8 +150,6 @@ class IMSDK:
         
         # Save engine reference
         self.engine = engine_ptr.contents
-
-        rcim_client.rcim_engine_set_log_filter(self.engine,RcimLogLevel_Debug)
 
         return {
             "code": 0,
@@ -175,17 +173,13 @@ class IMSDK:
         
         if not self.engine:
             return {"code": -1, "message": "Engine instance not built yet, please call initialize first"}
-        
-        logger.info(f"Connecting to Rongcloud service, token: {token}..., timeout: {timeout_sec}s")
-        
+                
         # Create callback data class
         class ConnectData:
             def __init__(self):
                 self.result = {"code": -1, "message": ""}
             
             def callback(self, user_data, code, user_id):
-
-                logger.info(f"rcim_engine_connect callback execution started")
                 # Get string from String type
                 user_id_str = string_cast(user_id)
                 # Assign user_id_str to global variable _USER_ID
@@ -214,13 +208,10 @@ class IMSDK:
         
         # Correctly convert token
         token_buffer = char_pointer_cast(token)
-        logger.info(f"token_buffer type: {type(token)}")
-        logger.info(f"token_buffer type: {type(token_buffer)}")
         
         # Create timeout parameter
         timeout_c = ctypes.c_int(timeout_sec)
         
-        logger.info(f"rcim_engine_connect about to execute")
         # Call connect function, note engine instance access method
         rcim_client.rcim_engine_connect(
             self.engine[0],  # Use self.engine[0] to get pointer object
@@ -229,7 +220,6 @@ class IMSDK:
             None,  # Set user_data parameter to None
             callback_fn
         )
-        logger.info(f"rcim_engine_connect execution completed")
 
         finished = connect_event.wait(timeout=timeout_sec + 1)
         if not finished:
@@ -238,7 +228,7 @@ class IMSDK:
         # Return callback result
         return callback_data.result
     
-    def send_text_message(self, receiver: str, content: str, conversation_type) -> Dict[str, Any]:
+    def send_text_message(self, receiver: str, content: str, conversation_type, ext_content: dict = {}) -> Dict[str, Any]:
         """
         Send message
         
@@ -264,26 +254,13 @@ class IMSDK:
                 def __init__(self):
                     self.result = {"code": -1, "message": ""}
                 
-                def callback(self, user_data, code, message_id):
-                    try:
-                        
-                        # Handle message ID (could be string or other type)
-                        message_id_str = None
-                        if isinstance(message_id, str):
-                            message_id_str = message_id
-                        elif hasattr(message_id, 'data') and message_id.data:
-                            # Handle String type
-                            message_id_str = message_id.data.decode('utf-8')
-                        elif message_id:
-                            # Try other conversion methods
-                            message_id_str = str(message_id)
-                            
+                def callback(self, user_data, code, message):
+                    try:   
                         self.result = {
                             "code": code,
-                            "message_id": message_id_str,
-                            "message": "Message sent successfully" if code == 0 else "Message sending failed"
+                            "message": message if code == 0 else "Message sending failed"
                         }
-                        logger.info(f"Send message callback: {'successful' if code == 0 else 'failed'}, Message ID: {message_id_str}, Error code: {code}")
+                        logger.info(f"Send message callback: {'successful' if code == 0 else 'failed'}, Message: {message}, Error code: {code}")
                     except Exception as e:
                         logger.info(f"Internal error in callback function: {e}")
                         self.result = {"code": -1, "message": str(e)}
@@ -294,12 +271,10 @@ class IMSDK:
             # Use correct callback function type and parameters
             def callback_wrapper(user_data, code, message_box):
                 # Extract message ID
-                message_id = None
                 if message_box and message_box.contents:
                     message_dict = ctypes_to_dict(message_box.contents)
-                    message_id = message_dict.get("message_id")
                 
-                res = callback_data.callback(user_data, code, message_id)
+                res = callback_data.callback(user_data, code, message_dict)
                 event.set()
                 return res
             
@@ -320,7 +295,9 @@ class IMSDK:
                 'content' : {
                     'content':content
                 },
-                'uid': USER_ID
+                'uid': USER_ID,
+                'is_ext_supported': True if ext_content else False,
+                'ext_content': ext_content if ext_content else {}
             }
 
             # Create RcimMessageBox struct instance
@@ -339,7 +316,7 @@ class IMSDK:
             )
             
             # Use event to wait for callback completion
-            finished = event.wait(timeout=2)
+            finished = event.wait(timeout=10)
             if not finished:
                 logger.info("Message sending timeout, no callback received")
                 return {"code": -2, "message": "Message sending timeout, no callback received"}
@@ -388,7 +365,6 @@ class IMSDK:
                 self.code = -1
 
             def callback(self, user_data, code, messages, messages_len):
-                logger.info(f"Get remote messages callback: code={code}, message_count={messages_len}")
                 self.code = code
                 if code == 0 and messages and messages_len > 0:
                     for i in range(messages_len):
@@ -411,7 +387,6 @@ class IMSDK:
         count_c = ctypes.c_int(count)
         timestamp_c = ctypes.c_int64(timestamp)
         order_enum = rcim_client.RcimOrder_Descending if order == 0 else rcim_client.RcimOrder_Ascending
-        logger.info(f"order: {order_enum}")
         
         # Call remote historical messages function
         rcim_client.rcim_engine_get_remote_history_messages(
@@ -428,7 +403,7 @@ class IMSDK:
         )
         
         # Wait for callback, maximum 5 seconds
-        finished = done_event.wait(timeout=2)
+        finished = done_event.wait(timeout=10)
 
         if not finished:
             logger.info("Get historical messages timeout, no callback received")
@@ -482,13 +457,194 @@ class IMSDK:
         rcim_client.rcim_engine_disconnect(self.engine[0], RcimDisconnectMode_NoPush, None, callback_fn)
         logger.info("Disconnection completed") 
         # Wait for callback completion, maximum 3 seconds
-        finished = disconnect_event.wait(timeout=2)
+        finished = disconnect_event.wait(timeout=10)
         if not finished:
             logger.info("Disconnection timeout, no callback received")
             return {"code": -2, "message": "Disconnection timeout, no callback received"}
         return callback_data.result
     
+    def send_image_message(self, target_id: str, local_path: str, conversation_type: int, ext_content: dict = {}) -> Dict[str, Any]:
+        """
+        Send private image message
+        """
+        if not self.engine:
+            return {"code": -1, "message": "Engine instance not built yet, please call initialize first"}
+        
+        if USER_ID == "":
+            return {"code": -1, "message": "Not connected"}
+        
+        # Check if file exists
+        if not os.path.exists(local_path):
+            return {"code": -1, "message": f"File does not exist: {local_path}"}
+        
+        try:
+            # Create callback data class
+            class SendMediaMessageData:
+                def __init__(self):
+                    self.result = {"code": -1, "message": ""}
+                
+                def callback(self, user_data, code, message_dict):
+                    try:
+                        self.result = {
+                            "code": code,
+                            "message": message_dict if code == 0 else "Message sending failed"
+                        }
+                    except Exception as e:
+                        logger.info(f"Callback function internal error: {e}")
+                        self.result = {"code": -1, "message": str(e)}
+            
+            # Create synchronization event
+            event = threading.Event()
+            callback_data = SendMediaMessageData()
+            
+            def callback_wrapper(user_data, code, message_box):
+                try:
+                    # Extract message ID
+                    message_dict = {}
+                    if message_box and message_box.contents:
+                        message_dict = ctypes_to_dict(message_box.contents)
+                    
+                    res = callback_data.callback(user_data, code, message_dict)
+                    event.set()
+                    return res
+                except Exception as e:
+                    logger.error(f"Callback wrapper error: {e}")
+                    event.set()
+                    return 0
+            
+            # Empty message callback function
+            def empty_message_callback(user_data, message_box):
+                # Empty implementation, just to satisfy type requirements
+                pass
+            
+            # Empty progress callback function
+            def empty_progress_callback(user_data, message_box, progress):
+                # Empty implementation, just to satisfy type requirements
+                pass
+            
+            callback_fn = rcim_client.RcimCodeMessageCb(callback_wrapper)
+            message_callback_fn = rcim_client.RcimMessageCb(empty_message_callback)
+            progress_callback_fn = rcim_client.RcimSendMessageOnProgressCb(empty_progress_callback)
+            # Create empty function pointer - if you want to pass NULL
+            media_handler_callback_fn = ctypes.cast(None, rcim_client.RcimMediaMessageHandlerCb)
+                        
+            message_box_dic = {
+                'conv_type': conversation_type,
+                'target_id': target_id,
+                'object_name': 'RC:ImgMsg',
+                'content': {
+                    'localPath': local_path  # Try using 'local' instead of 'localPath'
+                },
+                'uid': USER_ID,
+                'is_ext_supported': True if ext_content else False,
+                'ext_content': ext_content if ext_content else {}
+            }
+            
+            # Create RcimMessageBox struct instance
+            message_box = dict_to_ctypes(RcimMessageBox, message_box_dic)
+            # Create send_message_option object
+            send_option = dict_to_ctypes(RcimSendMessageOption, {})
+                        
+            rcim_client.rcim_engine_send_media_message(
+                self.engine[0],  # Use self.engine[0] to get pointer object
+                message_box,
+                send_option,
+                None,  # Set user_data parameter to None
+                callback_fn,
+                message_callback_fn,
+                progress_callback_fn,
+                media_handler_callback_fn
+            )
+            
+            # Use event to wait for callback completion
+            finished = event.wait(timeout=60)  # Image upload may take longer
+            if not finished:
+                logger.info("Image message sending timeout, no callback received")
+                return {"code": -2, "message": "Image message sending timeout, no callback received"}
+            # Return callback result
+            return callback_data.result
+        except Exception as e:
+            import traceback
+            logger.info(f"Image message sending failed: {e}")
+            logger.info(f"Exception stack: {traceback.format_exc()}")
+            return {
+                "code": -1,
+                "message": str(e)
+            }
 
+    def recall_message(self, message_dict: Dict[str, Any]) -> Dict[str, Any]:
+        """
+        Recall message
+        
+        Args:
+            message_id: Message ID
+            
+        Returns:
+            Success: Dictionary containing code and message
+        """
+        if not self.engine:
+            return {"code": -1, "message": "Engine instance not built yet, please call initialize first"}
+
+        if USER_ID == "":
+            return {"code": -1, "message": "Not connected"}
+            
+        try:
+            # Create callback data class
+            class RecallMessageData:
+                def __init__(self):
+                    self.result = {"code": -1, "message": ""}
+                
+                def callback(self, user_data, code, recall_notification):
+                    try:
+                        self.result = {
+                            "code": code,
+                            "message": "Message recall successful" if code == 0 else "Message recall failed",
+                        }
+                    except Exception as e:
+                        logger.info(f"Callback function internal error: {e}")
+                        self.result = {"code": -1, "message": str(e)}
+            
+            # Create callback data
+            callback_data = RecallMessageData()
+            event = threading.Event()
+            
+            # Use correct callback function type and parameters
+            def callback_wrapper(user_data, code, recall_notification):
+                message_dict = {}
+                if recall_notification and recall_notification.contents:
+                    message_dict = ctypes_to_dict(recall_notification.contents)
+                res = callback_data.callback(user_data, code, message_dict)
+                event.set()
+                return res
+            
+            callback_fn = rcim_client.RcimRecallMessageCb(callback_wrapper)
+
+            # Create RcimMessageBox struct instance
+            message_box = dict_to_ctypes(RcimMessageBox, message_dict)
+
+            # Call recall message function
+            rcim_client.rcim_engine_recall_message(
+                self.engine[0],  # Use self.engine[0] to get pointer object
+                message_box,
+                None,  # Set user_data parameter to None
+                callback_fn
+            )
+            
+            # Use event to wait for callback completion
+            finished = event.wait(timeout=10)
+            if not finished:
+                logger.info("Message recall timeout, no callback received")
+                return {"code": -2, "message": "Message recall timeout, no callback received"}
+            # Return callback result
+            return callback_data.result
+        except Exception as e:
+            import traceback
+            logger.info(f"Message recall failed: {e}")
+            logger.info(f"Exception stack: {traceback.format_exc()}")
+            return {
+                "code": -1,
+                "message": str(e)
+            }
 
     def destroy(self):
         """
