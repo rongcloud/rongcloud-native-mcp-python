@@ -463,7 +463,7 @@ class IMSDK:
             return {"code": -2, "message": "Disconnection timeout, no callback received"}
         return callback_data.result
     
-    def send_image_message(self, target_id: str, local_path: str, conversation_type: int, ext_content: dict = {}) -> Dict[str, Any]:
+    def send_image_message(self, target_id: str, thumbnail_base64: str, image_uri: str, conversation_type: int, ext_content: dict = {}) -> Dict[str, Any]:
         """
         Send private image message
         """
@@ -473,9 +473,12 @@ class IMSDK:
         if USER_ID == "":
             return {"code": -1, "message": "Not connected"}
         
-        # Check if file exists
-        if not os.path.exists(local_path):
-            return {"code": -1, "message": f"File does not exist: {local_path}"}
+        if thumbnail_base64 == "" or image_uri == "":
+            return {"code": -1, "message": "Thumbnail base64 or image uri is empty"}
+        
+        # 处理 thumbnail_base64，如果包含逗号，取逗号后面的部分
+        if "," in thumbnail_base64:
+            thumbnail_base64 = thumbnail_base64.split(",", 1)[1]
         
         try:
             # Create callback data class
@@ -533,7 +536,8 @@ class IMSDK:
                 'target_id': target_id,
                 'object_name': 'RC:ImgMsg',
                 'content': {
-                    'localPath': local_path  # Try using 'local' instead of 'localPath'
+                    'content': thumbnail_base64,
+                    'imageUri': image_uri
                 },
                 'uid': USER_ID,
                 'is_ext_supported': True if ext_content else False,

@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "rongcloud-native-mcp-python"
-version = "0.1.3"
+version = "0.1.5"
 description = "Rongcloud IM Service based on MCP Protocol (Rust SDK Wrapper)"
 readme = "README.md"
 requires-python = ">=3.12"

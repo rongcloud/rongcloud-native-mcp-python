@@ -147,7 +147,8 @@ def get_group_messages(
 @app.tool()
 def send_private_image_message(
     user_id: str = "",
-    local_path: str = "Without quote",
+    thumbnail_base64: str = "",
+    image_uri: str = "",
     ext_content: dict = {}
 ) -> Dict[str, Any]:
     """
@@ -155,7 +156,8 @@ def send_private_image_message(
     
     Args:
         user_id: Recipient user ID
-        local_path: Local image file path
+        thumbnail_base64: Thumbnail base64
+        image_uri: Image uri
         ext_content: Extended content dictionary for additional message data
         
     Returns:
@@ -168,12 +170,13 @@ def send_private_image_message(
     if result.get("code", -1) != 0:
         return result
     
-    return default_sdk.send_image_message(user_id, local_path, RcimConversationType_Private, ext_content)
+    return default_sdk.send_image_message(user_id, thumbnail_base64, image_uri, RcimConversationType_Private, ext_content)
 
 @app.tool()
 def send_group_image_message(
     group_id: str = "",
-    local_path: str = "Without quote",
+    thumbnail_base64: str = "",
+    image_uri: str = "",
     ext_content: dict = {}
 ) -> Dict[str, Any]:
     """
@@ -181,7 +184,8 @@ def send_group_image_message(
     
     Args:
         group_id: Recipient group ID
-        local_path: Local image file path
+        thumbnail_base64: Thumbnail base64
+        image_uri: Image uri
         ext_content: Extended content dictionary for additional message data
         
     Returns:
@@ -194,7 +198,7 @@ def send_group_image_message(
     if result.get("code", -1) != 0:
         return result
     
-    return default_sdk.send_image_message(group_id, local_path, RcimConversationType_Group, ext_content)
+    return default_sdk.send_image_message(group_id, thumbnail_base64, image_uri, RcimConversationType_Group, ext_content)
 
 @app.tool()
 def recall_message(

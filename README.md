@@ -39,7 +39,7 @@ UV 是一个用 Rust 编写的 Python 包安装和依赖管理工具，比传统
           "TOKEN": "应用 SDK Token (从 Server API 获取)",
           "AREA_CODE": "数据中心区域码（北京 = 1，新加坡 = 2，北美 = 3，新加坡B = 4，沙特 = 5），非公有云客户不设置",
           "NAVI_URL": "导航地址（非公有云客户）",
-          "STAT_URL": "数据统计地址（非公有云客户）"
+          "STATS_URL": "数据统计地址（非公有云客户）"
       }
     }
   }
@@ -59,7 +59,7 @@ UV 是一个用 Rust 编写的 Python 包安装和依赖管理工具，比传统
   - 5: 沙特
   - 注意：非公有云客户请勿设置
 - `NAVI_URL`: （可选）导航 URL，非公有云客户必填
-- `STAT_URL`: （可选）统计 URL，非公有云客户必填
+- `STATS_URL`: （可选）统计 URL，非公有云客户必填
 
 ### 在 Cherry studio 中使用
 
@@ -77,6 +77,7 @@ UV 是一个用 Rust 编写的 Python 包安装和依赖管理工具，比传统
 - **参数**：
   - `user_id` (str, 默认"")：消息接收者的用户ID
   - `content` (str, 默认"")：消息内容
+  - `ext_content` (dict, 默认{})：扩展内容字典，用于附加消息数据
 - **返回**：
   - 失败：包含 `code` 和 `error` 的字典
   - 成功：包含 `code`、`message_id` 和 `message` 的字典
@@ -87,6 +88,7 @@ UV 是一个用 Rust 编写的 Python 包安装和依赖管理工具，比传统
 - **参数**：
   - `group_id` (str, 默认"")：群组ID
   - `content` (str, 默认"")：消息内容
+  - `ext_content` (dict, 默认{})：扩展内容字典，用于附加消息数据
 - **返回**：
   - 失败：包含 `code` 和 `error` 的字典
   - 成功：包含 `code`、`message_id` 和 `message` 的字典
@@ -112,6 +114,39 @@ UV 是一个用 Rust 编写的 Python 包安装和依赖管理工具，比传统
 - **返回**：
   - 失败：包含 `code` 和 `error` 的字典
   - 成功：包含 `code` 和消息数组的字典
+
+### 5. `send_private_image_message`
+
+- **功能**：发送图片消息给指定用户（私聊）
+- **参数**：
+  - `user_id` (str, 默认"")：消息接收者的用户ID
+  - `thumbnail_base64` (str, 默认"")：缩略图的base64编码
+  - `image_uri` (str, 默认"")：图片URI地址
+  - `ext_content` (dict, 默认{})：扩展内容字典，用于附加消息数据
+- **返回**：
+  - 失败：包含 `code` 和 `error` 的字典
+  - 成功：包含 `code`、`message_id` 和 `message` 的字典
+
+### 6. `send_group_image_message`
+
+- **功能**：发送图片消息给指定群组（群聊）
+- **参数**：
+  - `group_id` (str, 默认"")：群组ID
+  - `thumbnail_base64` (str, 默认"")：图片缩略图的base64编码
+  - `image_uri` (str, 默认"")：图片URI地址
+  - `ext_content` (dict, 默认{})：扩展内容字典，用于附加消息数据
+- **返回**：
+  - 失败：包含 `code` 和 `error` 的字典
+  - 成功：包含 `code`、`message_id` 和 `message` 的字典
+
+### 7. `recall_message`
+
+- **功能**：撤回指定消息
+- **参数**：
+  - `message_dict` (dict)：完整的消息对象，包含message_id、conversation_type、target_id等字段
+- **返回**：
+  - 失败：包含 `code` 和 `error` 的字典
+  - 成功：包含 `code` 和 `message` 的字典
 
 **注意**：
 - IM 引擎会在首次调用任何消息相关工具时自动初始化和连接
